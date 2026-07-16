@@ -26,6 +26,12 @@ export const HOME_NAV: NavSection = {
       icon: "fa-chart-line",
       readerAllowed: true,
     },
+    {
+      href: "/estatisticas/team-token-usage",
+      label: "My Team Token Usage",
+      icon: "fa-people-group",
+      leaderOnly: true,
+    },
   ],
 };
 
@@ -41,12 +47,6 @@ export const STATS_NAV: NavSection = {
       href: "/estatisticas/members-token-usage",
       label: "Members Token Usage",
       icon: "fa-microchip",
-    },
-    {
-      href: "/estatisticas/team-token-usage",
-      label: "Team Token Usage",
-      icon: "fa-people-group",
-      leaderOnly: true,
     },
   ],
 };

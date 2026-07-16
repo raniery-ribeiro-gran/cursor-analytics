@@ -5,6 +5,7 @@ import { getMembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
 import {
   parseTokenUsageDateRange,
   resolveTokenUsageDateRange,
+  TokenUsageDateRangeError,
 } from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao carregar My Token Usage";
-    if (message.includes("Data") || message.includes("datas")) {
+    if (error instanceof TokenUsageDateRangeError) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     console.error("[estatisticas/my-token-usage GET]", error);

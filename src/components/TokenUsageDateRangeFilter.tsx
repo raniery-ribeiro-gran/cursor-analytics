@@ -3,6 +3,17 @@
 import { useEffect, useState } from "react";
 import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
 
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month! - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function defaultFrom(meta: TokenUsageDateRangeMeta): string {
   if (!meta.maxDate) return "";
   const [year, month, day] = meta.maxDate.split("-").map(Number);
@@ -35,6 +46,10 @@ export function TokenUsageDateRangeFilter({
   function apply(nextFrom = from, nextTo = to) {
     if (!nextFrom || !nextTo) {
       setError("Informe as datas De e Até.");
+      return;
+    }
+    if (!isValidDate(nextFrom) || !isValidDate(nextTo)) {
+      setError("Informe datas válidas no formato YYYY-MM-DD.");
       return;
     }
     if (nextFrom > nextTo) {

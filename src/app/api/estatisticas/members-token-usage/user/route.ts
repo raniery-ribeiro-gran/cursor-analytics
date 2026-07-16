@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { getMembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
-import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
+import {
+  parseTokenUsageDateRange,
+  TokenUsageDateRangeError,
+} from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +26,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Erro ao carregar detalhe";
-    const status = message.includes("inválid") ? 400 : 500;
+    const status =
+      error instanceof TokenUsageDateRangeError ||
+      message.includes("E-mail inválido")
+        ? 400
+        : 500;
     if (status >= 500) {
       console.error("[estatisticas/members-token-usage/user GET]", error);
     }

@@ -16,6 +16,13 @@ export interface TokenUsageDateRangeMeta {
   isDefault: boolean;
 }
 
+export class TokenUsageDateRangeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TokenUsageDateRangeError";
+  }
+}
+
 function isValidDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
@@ -40,12 +47,18 @@ export function parseTokenUsageDateRange(
   const from = searchParams.get("from")?.trim() || undefined;
   const to = searchParams.get("to")?.trim() || undefined;
   if ((from && !to) || (!from && to)) {
-    throw new Error("Informe as datas De e Até");
+    throw new TokenUsageDateRangeError("Informe as datas De e Até");
   }
-  if (from && !isValidDate(from)) throw new Error("Data De inválida");
-  if (to && !isValidDate(to)) throw new Error("Data Até inválida");
+  if (from && !isValidDate(from)) {
+    throw new TokenUsageDateRangeError("Data De inválida");
+  }
+  if (to && !isValidDate(to)) {
+    throw new TokenUsageDateRangeError("Data Até inválida");
+  }
   if (from && to && from > to) {
-    throw new Error("A data De deve ser anterior ou igual à data Até");
+    throw new TokenUsageDateRangeError(
+      "A data De deve ser anterior ou igual à data Até",
+    );
   }
   return { from, to };
 }
@@ -55,12 +68,18 @@ export async function resolveTokenUsageDateRange(
   input: TokenUsageDateRangeInput = {},
 ): Promise<TokenUsageDateRangeMeta> {
   if ((input.from && !input.to) || (!input.from && input.to)) {
-    throw new Error("Informe as datas De e Até");
+    throw new TokenUsageDateRangeError("Informe as datas De e Até");
   }
-  if (input.from && !isValidDate(input.from)) throw new Error("Data De inválida");
-  if (input.to && !isValidDate(input.to)) throw new Error("Data Até inválida");
+  if (input.from && !isValidDate(input.from)) {
+    throw new TokenUsageDateRangeError("Data De inválida");
+  }
+  if (input.to && !isValidDate(input.to)) {
+    throw new TokenUsageDateRangeError("Data Até inválida");
+  }
   if (input.from && input.to && input.from > input.to) {
-    throw new Error("A data De deve ser anterior ou igual à data Até");
+    throw new TokenUsageDateRangeError(
+      "A data De deve ser anterior ou igual à data Até",
+    );
   }
 
   const result = await query(

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamTokenUsageAccess } from "@/lib/authz";
 import { getTeamTokenUsageUserDetail } from "@/lib/teamTokenUsageStats";
-import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
+import {
+  parseTokenUsageDateRange,
+  TokenUsageDateRangeError,
+} from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +37,15 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Erro ao carregar detalhe";
-    const status = message.includes("hierarquia") ? 403 : 500;
-    console.error("[estatisticas/team-token-usage/user GET]", error);
+    const status =
+      error instanceof TokenUsageDateRangeError
+        ? 400
+        : message.includes("hierarquia")
+          ? 403
+          : 500;
+    if (status >= 500) {
+      console.error("[estatisticas/team-token-usage/user GET]", error);
+    }
     return NextResponse.json({ error: message }, { status });
   }
 }
