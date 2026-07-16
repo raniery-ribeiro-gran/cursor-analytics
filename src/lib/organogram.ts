@@ -99,12 +99,12 @@ export class OrganogramIndex {
   }
 
   all(): OrganogramEntry[] {
-    return [...this.byEmail.values()];
+    return [...new Set(this.byEmail.values())];
   }
 
   byTribe(): Map<string, OrganogramEntry[]> {
     const result = new Map<string, OrganogramEntry[]>();
-    for (const entry of this.byEmail.values()) {
+    for (const entry of this.all()) {
       const tribe = entry.tribe || entry.department || "Sem tribo";
       const list = result.get(tribe) ?? [];
       list.push(entry);

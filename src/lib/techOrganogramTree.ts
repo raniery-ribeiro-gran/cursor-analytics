@@ -160,7 +160,7 @@ export function buildTechOrganogramTree(
 
   return {
     roots,
-    totalPeople: entries.length,
+    totalPeople: byEmail.size,
     totalTribes: tribes.length,
     tribes,
   };
