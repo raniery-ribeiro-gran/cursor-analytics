@@ -281,7 +281,7 @@ export async function importMembersUsageCsv(options: {
       parsed_row_count, ignored_row_count, usage_cycle_id
     ) VALUES (
       'members_usage', $1, $2, $3, 'success',
-      NULL, $4, $5, datetime('now'), $3, 0, $6
+      NULL, $4, $5, datetime('now'), $6, 0, $7
     )
     RETURNING id
   `,
@@ -291,6 +291,7 @@ export async function importMembersUsageCsv(options: {
       rows.length,
       sourceTeamId,
       cycleDate,
+      rows.length,
       usageCycleId,
     ],
   );
