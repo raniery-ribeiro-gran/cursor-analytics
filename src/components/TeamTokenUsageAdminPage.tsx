@@ -63,11 +63,18 @@ function OrganogramRows({
   onTeam: (node: TechOrganogramNode) => void;
   onPerson: (node: TechOrganogramNode) => void;
 }) {
+  const orderedNodes = [...nodes].sort((a, b) => {
+    const aIsLeader = a.reportCount > 0;
+    const bIsLeader = b.reportCount > 0;
+    if (aIsLeader !== bIsLeader) return aIsLeader ? -1 : 1;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+
   return (
     <>
-      {nodes.map((node) => {
+      {orderedNodes.map((node) => {
         const canOpenPerson = Boolean(node.email) && !node.external;
-        const canOpenTeam = canOpenPerson && node.children.length > 0;
+        const canOpenTeam = canOpenPerson && node.reportCount > 0;
         const hasChildren = node.children.length > 0;
         const isExpanded = forceExpanded || expanded.has(node.id);
         const initials = node.name
