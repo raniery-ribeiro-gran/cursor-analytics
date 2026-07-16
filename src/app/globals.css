@@ -1,0 +1,160 @@
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gran-red: #dd303e;
+  --gran-lime: #caff39;
+  --gran-navy: #001533;
+  --gran-blue: #0045ad;
+  --gran-bg: #f5f7fa;
+  --app-topbar-height: 3.5rem;
+  --app-sticky-offset: calc(var(--app-topbar-height) + 1.5rem);
+}
+
+body {
+  @apply bg-gran-bg text-gran-text font-source-sans antialiased;
+}
+
+@layer components {
+  .select-field {
+    @apply w-full min-w-[140px] rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gran-text focus:border-gran-blue focus:outline-none focus:ring-1 focus:ring-gran-blue disabled:cursor-not-allowed disabled:bg-gray-100;
+  }
+
+  .btn-primary {
+    @apply rounded-md bg-gran-red px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-success {
+    @apply inline-flex items-center gap-2 rounded-md bg-gran-success px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#065a41] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply rounded-md border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-icon-priorize {
+    @apply btn-icon border border-green-200 bg-green-50 text-gran-success hover:bg-green-100;
+  }
+
+  .btn-icon-remove {
+    @apply btn-icon border border-red-200 bg-red-50 text-red-600 hover:bg-red-100;
+  }
+
+  .btn-icon-edit {
+    @apply btn-icon border border-gray-200 bg-white text-gran-navy hover:bg-gray-50;
+  }
+
+  .btn-icon-effort {
+    @apply btn-icon border border-blue-200 bg-blue-50 text-gran-blue hover:bg-blue-100;
+  }
+
+  .btn-effort {
+    @apply inline-flex items-center gap-2 rounded-md bg-gran-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#003a8c] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
+
+/* Organograma: árvore top-down com conectores (compacto) */
+.org-chart,
+.org-chart ul {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.75rem;
+  position: relative;
+  margin: 0;
+  list-style: none;
+}
+
+.org-chart {
+  padding-top: 0;
+}
+
+.org-chart ul {
+  gap: 0;
+}
+
+.org-chart li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0.75rem 0.3rem 0;
+}
+
+.org-chart li::before,
+.org-chart li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 50%;
+  border-top: 1.5px solid #cbd5e1;
+  width: 50%;
+  height: 0.75rem;
+}
+
+.org-chart li::after {
+  right: auto;
+  left: 50%;
+  border-left: 1.5px solid #cbd5e1;
+}
+
+.org-chart li:only-child::before,
+.org-chart li:only-child::after {
+  display: none;
+}
+
+.org-chart li:only-child {
+  padding-top: 0;
+}
+
+.org-chart li:first-child::before,
+.org-chart li:last-child::after {
+  border-top: none;
+}
+
+.org-chart li:last-child::before {
+  border-right: 1.5px solid #cbd5e1;
+  border-radius: 0 0.3rem 0 0;
+}
+
+.org-chart li:first-child::after {
+  border-radius: 0.3rem 0 0 0;
+}
+
+.org-chart .org-node-wrap {
+  position: relative;
+}
+
+.org-chart .org-node-wrap::before {
+  content: "";
+  position: absolute;
+  top: -0.75rem;
+  left: 50%;
+  border-left: 1.5px solid #cbd5e1;
+  height: 0.75rem;
+}
+
+.org-chart > li > .org-node-wrap::before,
+.org-chart li:only-child > .org-node-wrap::before {
+  display: none;
+}
+
+.org-chart .org-children {
+  position: relative;
+}
+
+.org-chart .org-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  border-left: 1.5px solid #cbd5e1;
+  height: 0.75rem;
+}
