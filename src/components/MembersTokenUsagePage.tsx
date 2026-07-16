@@ -692,14 +692,22 @@ function OutliersChart({
 
 export function MembersTokenUsagePage({
   variant = "members",
+  apiBase: customApiBase,
+  leaderEmail,
+  embedded = false,
 }: {
   variant?: "members" | "team";
+  apiBase?: string;
+  leaderEmail?: string;
+  embedded?: boolean;
 } = {}) {
   const isTeam = variant === "team";
-  const apiBase = isTeam
-    ? "/api/estatisticas/team-token-usage"
-    : "/api/estatisticas/members-token-usage";
-  const pageTitle = isTeam ? "Team Token Usage" : "Members Token Usage";
+  const apiBase =
+    customApiBase ??
+    (isTeam
+      ? "/api/estatisticas/team-token-usage"
+      : "/api/estatisticas/members-token-usage");
+  const pageTitle = isTeam ? "My Team Token Usage" : "Members Token Usage";
   const pageIcon = isTeam ? "fa-people-group" : "fa-microchip";
   const emptyImportHint = isTeam
     ? "Importe o Members Token Usage em Configurações → Dados para visualizar esta estatística."
@@ -759,6 +767,7 @@ export function MembersTokenUsagePage({
     setUserData(null);
     try {
       const params = new URLSearchParams({ email });
+      if (leaderEmail) params.set("leaderEmail", leaderEmail);
       if (dateRange?.from && dateRange.to) {
         params.set("from", dateRange.from);
         params.set("to", dateRange.to);
@@ -776,7 +785,7 @@ export function MembersTokenUsagePage({
     } finally {
       setUserLoading(false);
     }
-  }, [apiBase, dateRange]);
+  }, [apiBase, dateRange, leaderEmail]);
 
   const closeUserDetail = useCallback(() => {
     setUserOpen(false);
@@ -790,6 +799,7 @@ export function MembersTokenUsagePage({
     setSlotData(null);
     try {
       const params = new URLSearchParams();
+      if (leaderEmail) params.set("leaderEmail", leaderEmail);
       if (filters.weekday !== undefined) {
         params.set("weekday", String(filters.weekday));
       }
@@ -815,7 +825,7 @@ export function MembersTokenUsagePage({
     } finally {
       setSlotLoading(false);
     }
-  }, [apiBase, dateRange]);
+  }, [apiBase, dateRange, leaderEmail]);
 
   const closeSlot = useCallback(() => {
     setSlotOpen(false);
@@ -827,6 +837,7 @@ export function MembersTokenUsagePage({
     setError(null);
     try {
       const params = new URLSearchParams();
+      if (leaderEmail) params.set("leaderEmail", leaderEmail);
       if (range) {
         params.set("from", range.from);
         params.set("to", range.to);
@@ -879,15 +890,17 @@ export function MembersTokenUsagePage({
     } finally {
       setLoading(false);
     }
-  }, [apiBase, isTeam]);
+  }, [apiBase, isTeam, leaderEmail]);
 
   const loadTeamCycle = useCallback(async () => {
     if (!isTeam) return;
     setTeamCycleLoading(true);
     setTeamCycleError(null);
     try {
+      const params = new URLSearchParams();
+      if (leaderEmail) params.set("leaderEmail", leaderEmail);
       const response = await fetch(
-        "/api/estatisticas/team-token-usage/cycle",
+        `${apiBase}/cycle${params.size ? `?${params}` : ""}`,
       );
       const data = (await response.json()) as TeamMembersCycleUsage & {
         error?: string;
@@ -903,7 +916,7 @@ export function MembersTokenUsagePage({
     } finally {
       setTeamCycleLoading(false);
     }
-  }, [isTeam]);
+  }, [apiBase, isTeam, leaderEmail]);
 
   useEffect(() => {
     void load();
@@ -946,23 +959,25 @@ export function MembersTokenUsagePage({
 
   return (
     <>
-      <PageHeader
-        title={pageTitle}
-        subtitle={subtitle}
-        icon={pageIcon}
-        onRefresh={() => {
-          void load(
-            dateRange?.from && dateRange.to
-              ? { from: dateRange.from, to: dateRange.to }
-              : undefined,
-          );
-          void loadTeamCycle();
-        }}
-        loading={loading}
-        refreshLabel="Atualizar"
-      />
+      {!embedded ? (
+        <PageHeader
+          title={pageTitle}
+          subtitle={subtitle}
+          icon={pageIcon}
+          onRefresh={() => {
+            void load(
+              dateRange?.from && dateRange.to
+                ? { from: dateRange.from, to: dateRange.to }
+                : undefined,
+            );
+            void loadTeamCycle();
+          }}
+          loading={loading}
+          refreshLabel="Atualizar"
+        />
+      ) : null}
 
-      <main className="flex-1 px-6 py-6">
+      <main className={embedded ? "min-w-0" : "flex-1 px-6 py-6"}>
         <TokenUsageDateRangeFilter
           meta={dateRange}
           loading={loading}
@@ -980,8 +995,7 @@ export function MembersTokenUsagePage({
               Sem liderados no organograma
             </p>
             <p className="mt-2 text-sm text-gran-muted">
-              Não encontramos pessoas abaixo de você na hierarquia. Confira o
-              organograma ou peça ao admin para validar o vínculo de liderança.
+              Não encontramos pessoas abaixo deste líder na hierarquia.
             </p>
           </section>
         ) : null}

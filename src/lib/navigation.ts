@@ -48,6 +48,12 @@ export const STATS_NAV: NavSection = {
       label: "Members Token Usage",
       icon: "fa-microchip",
     },
+    {
+      href: "/estatisticas/admin/team-token-usage",
+      label: "Team Token Usage",
+      icon: "fa-users-viewfinder",
+      adminOnly: true,
+    },
   ],
 };
 

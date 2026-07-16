@@ -31,6 +31,8 @@ export const APP_HOME_PATH = "/";
 export const READER_HOME_PATH = APP_HOME_PATH;
 
 export const TEAM_TOKEN_USAGE_PATH = "/estatisticas/team-token-usage";
+export const ADMIN_TEAM_TOKEN_USAGE_PATH =
+  "/estatisticas/admin/team-token-usage";
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   administrador: "Administrador",
@@ -52,6 +54,7 @@ export const USER_ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 };
 
 export const ADMIN_ONLY_PAGE_PATHS = [
+  ADMIN_TEAM_TOKEN_USAGE_PATH,
   "/configuracoes/dados",
   "/configuracoes/logs-acesso",
   "/configuracoes/controle-acesso",
@@ -59,6 +62,7 @@ export const ADMIN_ONLY_PAGE_PATHS = [
 ] as const;
 
 export const ADMIN_ONLY_API_PREFIXES = [
+  "/api/estatisticas/admin/team-token-usage",
   "/api/configuracoes/dados",
   "/api/configuracoes/logs-acesso",
   "/api/configuracoes/usuarios",
