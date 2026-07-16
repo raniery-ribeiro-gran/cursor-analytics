@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { getMembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
+import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const email = request.nextUrl.searchParams.get("email") ?? "";
-    const data = await getMembersTokenUsageUserDetail(email);
+    const dateRange = parseTokenUsageDateRange(request.nextUrl.searchParams);
+    const data = await getMembersTokenUsageUserDetail(email, { dateRange });
     if (!data) {
       return NextResponse.json(
         { error: "Usuário não encontrado neste upload" },

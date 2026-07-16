@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { getTokenUsageSlotPeople } from "@/lib/membersTokenUsageStats";
+import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
     const weekdayRaw = searchParams.get("weekday");
     const hourRaw = searchParams.get("hour");
     const date = searchParams.get("date") ?? undefined;
+    const dateRange = parseTokenUsageDateRange(searchParams);
 
     const weekday =
       weekdayRaw === null || weekdayRaw === ""
@@ -28,7 +30,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "hour inválido" }, { status: 400 });
     }
 
-    const data = await getTokenUsageSlotPeople({ weekday, hour, date });
+    const data = await getTokenUsageSlotPeople({
+      weekday,
+      hour,
+      date,
+      ...dateRange,
+    });
     return NextResponse.json(data);
   } catch (error) {
     const message =

@@ -16,6 +16,11 @@ import {
   type OrganogramDescendant,
 } from "./organogramHierarchy";
 import { findPersonByEmail } from "./organogramDb";
+import {
+  tokenUsageRangeParams,
+  type TokenUsageDateRangeInput,
+  type TokenUsageDateRangeMeta,
+} from "./tokenUsageDateRange";
 
 export interface RestOfOrgBenchmark {
   users: number;
@@ -47,9 +52,17 @@ function emptyTeamPayload(
   reports: OrganogramDescendant[],
   emptyReason: TeamTokenUsageData["emptyReason"],
   upload: DataUploadLog | null = null,
+  dateRange: TokenUsageDateRangeMeta = {
+    from: null,
+    to: null,
+    minDate: null,
+    maxDate: null,
+    isDefault: true,
+  },
 ): TeamTokenUsageData {
   return {
     upload,
+    dateRange,
     summary: null,
     byKind: [],
     byModel: [],
@@ -253,6 +266,7 @@ function buildOutliersAgainstRest(
  */
 export async function getTeamTokenUsageData(
   leaderEmailInput: string,
+  dateRangeInput: TokenUsageDateRangeInput = {},
 ): Promise<TeamTokenUsageData> {
   const leaderEmail = leaderEmailInput.trim().toLowerCase();
   const leaderPerson = await findPersonByEmail(leaderEmail);
@@ -260,12 +274,19 @@ export async function getTeamTokenUsageData(
 
   const reports = await getOrganogramDescendants(leaderEmail);
   const teamEmails = new Set(reports.map((person) => person.email));
+  const full = await getMembersTokenUsageData(dateRangeInput);
 
   if (teamEmails.size === 0) {
-    return emptyTeamPayload(leaderEmail, leaderName, reports, "no_reports");
+    return emptyTeamPayload(
+      leaderEmail,
+      leaderName,
+      reports,
+      "no_reports",
+      full.upload,
+      full.dateRange,
+    );
   }
 
-  const full = await getMembersTokenUsageData();
   if (!full.upload || !full.summary) {
     return emptyTeamPayload(
       leaderEmail,
@@ -273,6 +294,7 @@ export async function getTeamTokenUsageData(
       reports,
       "no_usage",
       full.upload,
+      full.dateRange,
     );
   }
 
@@ -287,6 +309,7 @@ export async function getTeamTokenUsageData(
         reports,
         "no_usage",
         full.upload,
+        full.dateRange,
       ),
       restOfOrg: restUsers.length > 0 ? buildRestBenchmark(restUsers) : null,
     };
@@ -320,6 +343,7 @@ export async function getTeamTokenUsageData(
   const scoped = await getScopedChartsForEmails(
     full.upload.id,
     [...teamEmails],
+    full.dateRange,
   );
 
   const teamTokenTotal = summary.totalTokens || 1;
@@ -332,6 +356,7 @@ export async function getTeamTokenUsageData(
 
   return {
     upload: full.upload,
+    dateRange: full.dateRange,
     summary,
     byKind,
     byModel,
@@ -355,6 +380,7 @@ export async function getTeamTokenUsageData(
 export async function getTeamTokenUsageUserDetail(
   leaderEmail: string,
   memberEmail: string,
+  dateRangeInput: TokenUsageDateRangeInput = {},
 ): Promise<MembersTokenUsageUserDetail | null> {
   const reports = await getOrganogramDescendants(leaderEmail);
   const teamEmails = new Set(reports.map((person) => person.email));
@@ -364,7 +390,7 @@ export async function getTeamTokenUsageUserDetail(
     throw new Error("Membro fora da hierarquia do líder");
   }
 
-  const full = await getMembersTokenUsageData();
+  const full = await getMembersTokenUsageData(dateRangeInput);
   const restEmails = new Set(
     full.users
       .map((user) => user.email)
@@ -372,6 +398,7 @@ export async function getTeamTokenUsageUserDetail(
   );
 
   return getMembersTokenUsageUserDetail(member, {
+    dateRange: dateRangeInput,
     compareEmails: restEmails.size > 0 ? restEmails : undefined,
     rankAmongEmails: teamEmails,
   });
@@ -380,6 +407,7 @@ export async function getTeamTokenUsageUserDetail(
 async function getScopedChartsForEmails(
   uploadId: number,
   emails: string[],
+  dateRange: TokenUsageDateRangeMeta,
 ): Promise<
   Pick<
     MembersTokenUsageData,
@@ -409,9 +437,10 @@ async function getScopedChartsForEmails(
     };
   }
 
-  const placeholders = emails.map((_, index) => `$${index + 2}`).join(", ");
-  const params: unknown[] = [uploadId, ...emails];
-  const emailFilter = `upload_id = $1 AND user_email IN (${placeholders})`;
+  const range = tokenUsageRangeParams(dateRange);
+  const placeholders = emails.map((_, index) => `$${index + 4}`).join(", ");
+  const params: unknown[] = [uploadId, ...range.params, ...emails];
+  const emailFilter = `upload_id = $1 AND ${range.sql} AND user_email IN (${placeholders})`;
 
   const dailyResult = await query(
     `

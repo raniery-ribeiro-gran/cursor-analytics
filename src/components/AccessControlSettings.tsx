@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/lib/roles";
 import { USER_ROLE_LABELS } from "@/lib/roles";
@@ -229,16 +230,22 @@ export function AccessControlSettings() {
       />
 
       <main className="flex-1 px-6 py-6">
-        <section className="mb-6 rounded-lg bg-white p-6 shadow-sm">
+        <section className="mb-6 flex flex-col gap-4 rounded-lg bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <p className="text-sm text-gran-muted">
-            Nesta fase os perfis gerenciáveis são{" "}
-            <strong className="text-gran-navy">Administrador</strong> e{" "}
-            <strong className="text-gran-navy">Leitor</strong>. A listagem inclui
-            quem já acessou e quem foi{" "}
-            <strong className="text-gran-navy">pré-cadastrado</strong>. No
-            primeiro login, quem não foi pré-cadastrado recebe{" "}
+            Os perfis gerenciáveis são{" "}
+            <strong className="text-gran-navy">Administrador</strong>,{" "}
+            <strong className="text-gran-navy">Líder</strong> e{" "}
+            <strong className="text-gran-navy">Leitor</strong>. No primeiro
+            login, quem não foi pré-cadastrado recebe o perfil{" "}
             <strong className="text-gran-navy">Leitor</strong> automaticamente.
           </p>
+          <Link
+            href="/configuracoes/perfis"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gran-navy transition hover:border-gran-blue hover:text-gran-blue"
+          >
+            <i className="fa-solid fa-id-badge" aria-hidden="true" />
+            Ver perfis e permissões
+          </Link>
         </section>
 
         {error && (

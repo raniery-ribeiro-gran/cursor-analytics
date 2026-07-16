@@ -7,6 +7,12 @@ import {
   WORKDAY_END_HOUR,
   WORKDAY_START_HOUR,
 } from "./membersTokenUsageConstants";
+import {
+  resolveTokenUsageDateRange,
+  tokenUsageRangeParams,
+  type TokenUsageDateRangeInput,
+  type TokenUsageDateRangeMeta,
+} from "./tokenUsageDateRange";
 
 export { WORKDAY_END_HOUR, WORKDAY_START_HOUR } from "./membersTokenUsageConstants";
 
@@ -112,6 +118,7 @@ export interface TokenUsageSummary {
 
 export interface MembersTokenUsageData {
   upload: DataUploadLog | null;
+  dateRange: TokenUsageDateRangeMeta;
   summary: TokenUsageSummary | null;
   byKind: TokenUsageKindBreakdown[];
   byModel: TokenUsageModelBreakdown[];
@@ -174,6 +181,13 @@ function quantile(sorted: number[], q: number): number {
 function emptyPayload(): MembersTokenUsageData {
   return {
     upload: null,
+    dateRange: {
+      from: null,
+      to: null,
+      minDate: null,
+      maxDate: null,
+      isDefault: true,
+    },
     summary: null,
     byKind: [],
     byModel: [],
@@ -189,11 +203,16 @@ function emptyPayload(): MembersTokenUsageData {
   };
 }
 
-export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData> {
+export async function getMembersTokenUsageData(
+  dateRangeInput: TokenUsageDateRangeInput = {},
+): Promise<MembersTokenUsageData> {
   await ensureSchema();
 
   const upload = await getLatestUploadByDataset("members_token_usage");
   if (!upload) return emptyPayload();
+  const dateRange = await resolveTokenUsageDateRange(upload.id, dateRangeInput);
+  const range = tokenUsageRangeParams(dateRange);
+  const rangeQueryParams = [upload.id, ...range.params];
 
   const aggResult = await query(
     `
@@ -212,9 +231,9 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COALESCE(SUM(CASE WHEN ${IS_OUTSIDE_HOURS} THEN 1 ELSE 0 END), 0) AS outside_events,
       COALESCE(SUM(CASE WHEN ${IS_OUTSIDE_HOURS} THEN total_tokens ELSE 0 END), 0) AS outside_tokens
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const agg = (aggResult.rows[0] ?? {}) as Record<string, unknown>;
   const events = Number(agg.events ?? 0);
@@ -230,11 +249,11 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
       COALESCE(SUM(CASE WHEN cost_type = 'usd' THEN cost ELSE 0 END), 0) AS cost_usd
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY kind
     ORDER BY total_tokens DESC, events DESC
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const byKind: TokenUsageKindBreakdown[] = (
     kindResult.rows as Record<string, unknown>[]
@@ -253,11 +272,11 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
       COUNT(DISTINCT user_email) AS users
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY model
     ORDER BY total_tokens DESC, events DESC
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const byModel: TokenUsageModelBreakdown[] = (
     modelResult.rows as Record<string, unknown>[]
@@ -287,11 +306,11 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COALESCE(SUM(CASE WHEN ${IS_OUTSIDE_HOURS} THEN 1 ELSE 0 END), 0) AS outside_events,
       COUNT(DISTINCT ${EVENT_BRT_DATE}) AS active_days
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY user_email
     ORDER BY total_tokens DESC, events DESC, user_email ASC
   `,
-    [upload.id],
+    rangeQueryParams,
   );
 
   const { getOrganogramIndex } = await import("./organogramDb");
@@ -389,11 +408,11 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COALESCE(SUM(CASE WHEN ${IS_OUTSIDE_HOURS} THEN 1 ELSE 0 END), 0) AS outside_events,
       COUNT(DISTINCT user_email) AS unique_users
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY day
     ORDER BY day ASC
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const daily: TokenUsageDailyPoint[] = (
     dailyResult.rows as Record<string, unknown>[]
@@ -417,11 +436,11 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY hour
     ORDER BY hour ASC
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const hourlyMap = new Map<number, TokenUsageHourPoint>();
   for (let hour = 0; hour < 24; hour += 1) {
@@ -451,10 +470,10 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY weekday, hour
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const heatmap: TokenUsageHeatCell[] = (
     heatResult.rows as Record<string, unknown>[]
@@ -474,11 +493,11 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
       COUNT(*) AS events,
       COALESCE(SUM(CASE WHEN ${IS_OUTSIDE_HOURS} THEN 1 ELSE 0 END), 0) AS outside_events
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY day
     ORDER BY day ASC
   `,
-    [upload.id],
+    rangeQueryParams,
   );
   const workWindows: TokenUsageWorkdayWindow[] = (
     windowResult.rows as Record<string, unknown>[]
@@ -517,6 +536,7 @@ export async function getMembersTokenUsageData(): Promise<MembersTokenUsageData>
 
   return {
     upload,
+    dateRange,
     summary,
     byKind,
     byModel,
@@ -571,6 +591,8 @@ export interface TokenUsageSlotQuery {
   weekday?: number;
   hour?: number;
   date?: string;
+  from?: string;
+  to?: string;
 }
 
 function displayNameFromEmail(email: string, resolvedName: string | null): string {
@@ -601,6 +623,10 @@ export async function getTokenUsageSlotPeople(
       people: [],
     };
   }
+  const dateRange = await resolveTokenUsageDateRange(upload.id, {
+    from: filters.from,
+    to: filters.to,
+  });
 
   const weekday =
     filters.weekday !== undefined && Number.isFinite(filters.weekday)
@@ -628,8 +654,9 @@ export async function getTokenUsageSlotPeople(
     throw new Error("weekday exige hour");
   }
 
-  const clauses = ["upload_id = $1"];
-  const params: unknown[] = [upload.id];
+  const range = tokenUsageRangeParams(dateRange);
+  const clauses = ["upload_id = $1", range.sql];
+  const params: unknown[] = [upload.id, ...range.params];
 
   if (date) {
     params.push(date);
@@ -729,6 +756,7 @@ export interface TokenUsageUserDailyPoint {
 }
 
 export interface MembersTokenUsageUserDetail {
+  dateRange: TokenUsageDateRangeMeta;
   email: string;
   name: string;
   user: TokenUsageUserDetailMetrics;
@@ -796,6 +824,7 @@ function mapUserMetrics(row: Record<string, unknown>): TokenUsageUserDetailMetri
 }
 
 export interface MembersTokenUsageUserDetailOptions {
+  dateRange?: TokenUsageDateRangeInput;
   /**
    * Pool usado para médias / z-score / outliers / média diária.
    * Default: todos os usuários do upload.
@@ -821,6 +850,12 @@ export async function getMembersTokenUsageUserDetail(
 
   const upload = await getLatestUploadByDataset("members_token_usage");
   if (!upload) return null;
+  const dateRange = await resolveTokenUsageDateRange(
+    upload.id,
+    options.dateRange,
+  );
+  const range = tokenUsageRangeParams(dateRange);
+  const commonParams = [upload.id, ...range.params];
 
   const userAgg = await query(
     `
@@ -837,9 +872,9 @@ export async function getMembersTokenUsageUserDetail(
       COALESCE(SUM(CASE WHEN kind = 'Free' THEN 1 ELSE 0 END), 0) AS free_events,
       COALESCE(SUM(CASE WHEN kind = 'On-Demand' THEN 1 ELSE 0 END), 0) AS on_demand_events
     FROM cursor_token_usage_events
-    WHERE upload_id = $1 AND user_email = $2
+    WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
   `,
-    [upload.id, email],
+    [...commonParams, email],
   );
 
   const userRow = (userAgg.rows[0] ?? {}) as Record<string, unknown>;
@@ -863,10 +898,10 @@ export async function getMembersTokenUsageUserDetail(
       COALESCE(SUM(CASE WHEN kind = 'Free' THEN 1 ELSE 0 END), 0) AS free_events,
       COALESCE(SUM(CASE WHEN kind = 'On-Demand' THEN 1 ELSE 0 END), 0) AS on_demand_events
     FROM cursor_token_usage_events
-    WHERE upload_id = $1
+    WHERE upload_id = $1 AND ${range.sql}
     GROUP BY user_email
   `,
-    [upload.id],
+    commonParams,
   );
 
   const allUsersWithEmail = (
@@ -982,7 +1017,7 @@ export async function getMembersTokenUsageUserDetail(
   let teamDailyMap = new Map<string, number>();
   if (compareEmailList && compareEmailList.length > 0) {
     const placeholders = compareEmailList
-      .map((_, index) => `$${index + 2}`)
+      .map((_, index) => `$${index + 4}`)
       .join(", ");
     const teamDailyResult = await query(
       `
@@ -991,10 +1026,10 @@ export async function getMembersTokenUsageUserDetail(
         COALESCE(SUM(total_tokens), 0) AS total_tokens,
         COUNT(DISTINCT user_email) AS unique_users
       FROM cursor_token_usage_events
-      WHERE upload_id = $1 AND user_email IN (${placeholders})
+      WHERE upload_id = $1 AND ${range.sql} AND user_email IN (${placeholders})
       GROUP BY day
     `,
-      [upload.id, ...compareEmailList],
+      [...commonParams, ...compareEmailList],
     );
     for (const row of teamDailyResult.rows as Record<string, unknown>[]) {
       const day = String(row.day ?? "");
@@ -1010,10 +1045,10 @@ export async function getMembersTokenUsageUserDetail(
         COALESCE(SUM(total_tokens), 0) AS total_tokens,
         COUNT(DISTINCT user_email) AS unique_users
       FROM cursor_token_usage_events
-      WHERE upload_id = $1
+      WHERE upload_id = $1 AND ${range.sql}
       GROUP BY day
     `,
-      [upload.id],
+      commonParams,
     );
     for (const row of teamDailyResult.rows as Record<string, unknown>[]) {
       const day = String(row.day ?? "");
@@ -1031,11 +1066,11 @@ export async function getMembersTokenUsageUserDetail(
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
       COALESCE(SUM(CASE WHEN ${IS_OUTSIDE_HOURS} THEN 1 ELSE 0 END), 0) AS outside_events
     FROM cursor_token_usage_events
-    WHERE upload_id = $1 AND user_email = $2
+    WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
     GROUP BY day
     ORDER BY day ASC
   `,
-    [upload.id, email],
+    [...commonParams, email],
   );
   const daily: TokenUsageUserDailyPoint[] = (
     userDailyResult.rows as Record<string, unknown>[]
@@ -1057,11 +1092,11 @@ export async function getMembersTokenUsageUserDetail(
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
-    WHERE upload_id = $1 AND user_email = $2
+    WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
     GROUP BY hour
     ORDER BY hour ASC
   `,
-    [upload.id, email],
+    [...commonParams, email],
   );
   const hourlyMap = new Map<number, TokenUsageHourPoint>();
   for (let hour = 0; hour < 24; hour += 1) {
@@ -1091,10 +1126,10 @@ export async function getMembersTokenUsageUserDetail(
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
-    WHERE upload_id = $1 AND user_email = $2
+    WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
     GROUP BY weekday, hour
   `,
-    [upload.id, email],
+    [...commonParams, email],
   );
   const heatmap: TokenUsageHeatCell[] = (
     heatResult.rows as Record<string, unknown>[]
@@ -1113,11 +1148,11 @@ export async function getMembersTokenUsageUserDetail(
       COALESCE(SUM(total_tokens), 0) AS total_tokens,
       COALESCE(SUM(CASE WHEN cost_type = 'usd' THEN cost ELSE 0 END), 0) AS cost_usd
     FROM cursor_token_usage_events
-    WHERE upload_id = $1 AND user_email = $2
+    WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
     GROUP BY kind
     ORDER BY total_tokens DESC, events DESC
   `,
-    [upload.id, email],
+    [...commonParams, email],
   );
   const byKind: TokenUsageKindBreakdown[] = (
     kindResult.rows as Record<string, unknown>[]
@@ -1135,11 +1170,11 @@ export async function getMembersTokenUsageUserDetail(
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
-    WHERE upload_id = $1 AND user_email = $2
+    WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
     GROUP BY model
     ORDER BY total_tokens DESC, events DESC
   `,
-    [upload.id, email],
+    [...commonParams, email],
   );
   const byModel: TokenUsageModelBreakdown[] = (
     modelResult.rows as Record<string, unknown>[]
@@ -1159,6 +1194,7 @@ export async function getMembersTokenUsageUserDetail(
   const person = organogram.findByEmail(email);
 
   return {
+    dateRange,
     email,
     name: displayNameFromEmail(email, person?.name ?? null),
     user,

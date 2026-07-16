@@ -1,6 +1,7 @@
 import { ensureSchema, query } from "./sqlite";
 import {
-  getLatestUploadByDataset,
+  getMembersUsageUploadForCycle,
+  listMembersUsageCycles,
   type DataUploadLog,
 } from "./dataUploadsDb";
 
@@ -34,6 +35,7 @@ export interface MembersUsageCycleData {
   summary: MembersUsageSummary | null;
   members: MembersUsageMember[];
   topOnDemand: MembersUsageMember[];
+  cycles: DataUploadLog[];
 }
 
 function emptySummary(): MembersUsageSummary {
@@ -71,16 +73,20 @@ function mapMember(row: Record<string, unknown>): MembersUsageMember {
   };
 }
 
-export async function getMembersUsageCycleData(): Promise<MembersUsageCycleData> {
+export async function getMembersUsageCycleData(
+  usageCycleId?: number,
+): Promise<MembersUsageCycleData> {
   await ensureSchema();
 
-  const upload = await getLatestUploadByDataset("members_usage");
+  const cycles = await listMembersUsageCycles();
+  const upload = await getMembersUsageUploadForCycle(usageCycleId);
   if (!upload) {
     return {
       upload: null,
       summary: null,
       members: [],
       topOnDemand: [],
+      cycles,
     };
   }
 
@@ -171,5 +177,5 @@ export async function getMembersUsageCycleData(): Promise<MembersUsageCycleData>
     .filter((member) => member.onDemandUsage > 0)
     .slice(0, 5);
 
-  return { upload, summary, members, topOnDemand };
+  return { upload, summary, members, topOnDemand, cycles };
 }

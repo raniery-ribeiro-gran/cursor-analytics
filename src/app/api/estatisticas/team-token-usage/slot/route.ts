@@ -5,6 +5,7 @@ import {
   getTokenUsageSlotPeople,
   type TokenUsageSlotQuery,
 } from "@/lib/membersTokenUsageStats";
+import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,17 @@ export async function GET(request: NextRequest) {
   if (date) filters.date = date;
 
   try {
+    Object.assign(filters, parseTokenUsageDateRange(searchParams));
     const teamEmails = await getOrganogramDescendantEmailSet(auth.ctx.email);
     const data = await getTokenUsageSlotPeople(filters);
+    const people = data.people.filter((person) =>
+      teamEmails.has(person.email.toLowerCase()),
+    );
     return NextResponse.json({
       ...data,
-      people: data.people.filter((person) =>
-        teamEmails.has(person.email.toLowerCase()),
-      ),
+      events: people.reduce((sum, person) => sum + person.events, 0),
+      totalTokens: people.reduce((sum, person) => sum + person.totalTokens, 0),
+      people,
     });
   } catch (error) {
     const message =

@@ -33,12 +33,6 @@ export const STATS_NAV: NavSection = {
   title: "Estatísticas",
   items: [
     {
-      href: "/estatisticas/team-token-usage",
-      label: "Team Token Usage",
-      icon: "fa-people-group",
-      leaderOnly: true,
-    },
-    {
       href: "/estatisticas/members-usage",
       label: "Members Usage Cycle",
       icon: "fa-chart-column",
@@ -48,6 +42,12 @@ export const STATS_NAV: NavSection = {
       label: "Members Token Usage",
       icon: "fa-microchip",
     },
+    {
+      href: "/estatisticas/team-token-usage",
+      label: "Team Token Usage",
+      icon: "fa-people-group",
+      leaderOnly: true,
+    },
   ],
 };
 
@@ -55,26 +55,20 @@ export const SETTINGS_NAV: NavSection = {
   title: "Configurações",
   items: [
     {
-      href: "/configuracoes/organograma",
-      label: "Organograma",
-      icon: "fa-sitemap",
-    },
-    {
       href: "/configuracoes/dados",
       label: "Dados",
       icon: "fa-database",
       adminOnly: true,
     },
     {
+      href: "/configuracoes/organograma",
+      label: "Organograma",
+      icon: "fa-sitemap",
+    },
+    {
       href: "/configuracoes/controle-acesso",
       label: "Controle de acesso",
       icon: "fa-users-gear",
-      adminOnly: true,
-    },
-    {
-      href: "/configuracoes/perfis",
-      label: "Perfis",
-      icon: "fa-id-badge",
       adminOnly: true,
     },
     {

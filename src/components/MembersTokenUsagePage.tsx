@@ -26,8 +26,10 @@ import type {
   TokenUsageSummary,
   TokenUsageUserRow,
 } from "@/lib/membersTokenUsageStats";
+import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
 import { PageHeader } from "./PageHeader";
 import { MembersTokenUsageUserModal } from "./MembersTokenUsageUserModal";
+import { TokenUsageDateRangeFilter } from "./TokenUsageDateRangeFilter";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
 /** Ordem de exibição do heatmap: Seg→Dom */
@@ -700,6 +702,9 @@ export function MembersTokenUsagePage({
     : "Importe o Members Token Usage em Configurações → Dados para visualizar esta estatística.";
 
   const [upload, setUpload] = useState<DataUploadLog | null>(null);
+  const [dateRange, setDateRange] = useState<TokenUsageDateRangeMeta | null>(
+    null,
+  );
   const [summary, setSummary] = useState<TokenUsageSummary | null>(null);
   const [byKind, setByKind] = useState<TokenUsageKindBreakdown[]>([]);
   const [byModel, setByModel] = useState<TokenUsageModelBreakdown[]>([]);
@@ -746,6 +751,10 @@ export function MembersTokenUsagePage({
     setUserData(null);
     try {
       const params = new URLSearchParams({ email });
+      if (dateRange?.from && dateRange.to) {
+        params.set("from", dateRange.from);
+        params.set("to", dateRange.to);
+      }
       const response = await fetch(`${apiBase}/user?${params}`);
       const data = (await response.json()) as MembersTokenUsageUserDetail & {
         error?: string;
@@ -759,7 +768,7 @@ export function MembersTokenUsagePage({
     } finally {
       setUserLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, dateRange]);
 
   const closeUserDetail = useCallback(() => {
     setUserOpen(false);
@@ -780,6 +789,10 @@ export function MembersTokenUsagePage({
         params.set("hour", String(filters.hour));
       }
       if (filters.date) params.set("date", filters.date);
+      if (dateRange?.from && dateRange.to) {
+        params.set("from", dateRange.from);
+        params.set("to", dateRange.to);
+      }
 
       const response = await fetch(`${apiBase}/slot?${params}`);
       const data = (await response.json()) as TokenUsageSlotBreakdown & {
@@ -794,18 +807,25 @@ export function MembersTokenUsagePage({
     } finally {
       setSlotLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, dateRange]);
 
   const closeSlot = useCallback(() => {
     setSlotOpen(false);
     setSlotError(null);
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (range?: { from: string; to: string }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(apiBase);
+      const params = new URLSearchParams();
+      if (range) {
+        params.set("from", range.from);
+        params.set("to", range.to);
+      }
+      const response = await fetch(
+        params.size > 0 ? `${apiBase}?${params}` : apiBase,
+      );
       const data = (await response.json()) as MembersTokenUsageData & {
         error?: string;
         organogramReports?: number;
@@ -824,6 +844,7 @@ export function MembersTokenUsagePage({
       }
 
       setUpload(data.upload);
+      setDateRange(data.dateRange);
       setSummary(data.summary);
       setByKind(data.byKind ?? []);
       setByModel(data.byModel ?? []);
@@ -893,12 +914,23 @@ export function MembersTokenUsagePage({
         title={pageTitle}
         subtitle={subtitle}
         icon={pageIcon}
-        onRefresh={load}
+        onRefresh={() =>
+          void load(
+            dateRange?.from && dateRange.to
+              ? { from: dateRange.from, to: dateRange.to }
+              : undefined,
+          )
+        }
         loading={loading}
         refreshLabel="Atualizar"
       />
 
       <main className="flex-1 px-6 py-6">
+        <TokenUsageDateRangeFilter
+          meta={dateRange}
+          loading={loading}
+          onApply={(from, to) => void load({ from, to })}
+        />
         {error ? (
           <section className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}

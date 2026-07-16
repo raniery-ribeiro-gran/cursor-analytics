@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamTokenUsageAccess } from "@/lib/authz";
 import { getTeamTokenUsageUserDetail } from "@/lib/teamTokenUsageStats";
+import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await getTeamTokenUsageUserDetail(auth.ctx.email, email);
+    const dateRange = parseTokenUsageDateRange(request.nextUrl.searchParams);
+    const data = await getTeamTokenUsageUserDetail(
+      auth.ctx.email,
+      email,
+      dateRange,
+    );
     if (!data) {
       return NextResponse.json(
         { error: "Sem usage events para este membro no último upload" },

@@ -1,17 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireTeamTokenUsageAccess } from "@/lib/authz";
 import { getTeamTokenUsageData } from "@/lib/teamTokenUsageStats";
+import { parseTokenUsageDateRange } from "@/lib/tokenUsageDateRange";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const auth = await requireTeamTokenUsageAccess();
   if ("error" in auth) return auth.error;
 
   try {
-    const data = await getTeamTokenUsageData(auth.ctx.email);
+    const dateRange = parseTokenUsageDateRange(request.nextUrl.searchParams);
+    const data = await getTeamTokenUsageData(auth.ctx.email, dateRange);
     return NextResponse.json(data);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao carregar Team Token Usage";
+    if (message.includes("Data") || message.includes("datas")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     console.error("[estatisticas/team-token-usage GET]", error);
     return NextResponse.json(
       { error: "Erro ao carregar Team Token Usage" },

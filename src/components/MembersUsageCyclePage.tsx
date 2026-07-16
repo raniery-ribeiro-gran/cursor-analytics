@@ -127,6 +127,8 @@ export function MembersUsageCyclePage() {
   const [summary, setSummary] = useState<MembersUsageSummary | null>(null);
   const [members, setMembers] = useState<MembersUsageMember[]>([]);
   const [topOnDemand, setTopOnDemand] = useState<MembersUsageMember[]>([]);
+  const [cycles, setCycles] = useState<DataUploadLog[]>([]);
+  const [selectedCycle, setSelectedCycle] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,7 +141,13 @@ export function MembersUsageCyclePage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/estatisticas/members-usage");
+      const params = new URLSearchParams();
+      if (selectedCycle != null) {
+        params.set("cycle", String(selectedCycle));
+      }
+      const response = await fetch(
+        `/api/estatisticas/members-usage${params.size ? `?${params}` : ""}`,
+      );
       const data = (await response.json()) as MembersUsageCycleData & {
         error?: string;
       };
@@ -150,12 +158,13 @@ export function MembersUsageCyclePage() {
       setSummary(data.summary);
       setMembers(data.members);
       setTopOnDemand(data.topOnDemand);
+      setCycles(data.cycles ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCycle]);
 
   useEffect(() => {
     void load();
@@ -216,6 +225,40 @@ export function MembersUsageCyclePage() {
       />
 
       <main className="flex-1 px-6 py-6">
+        {cycles.length > 0 ? (
+          <section className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <div>
+              <p className="text-sm font-semibold text-gran-navy">
+                Histórico de ciclos
+              </p>
+              <p className="mt-0.5 text-xs text-gran-muted">
+                O ciclo anterior é fechado automaticamente quando os acumulados
+                reiniciam.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gran-navy">
+              <span className="font-semibold">Ciclo</span>
+              <select
+                value={selectedCycle ?? upload?.usageCycleId ?? ""}
+                onChange={(event) =>
+                  setSelectedCycle(Number(event.target.value))
+                }
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                {cycles.map((cycle, index) => (
+                  <option
+                    key={cycle.usageCycleId ?? cycle.id}
+                    value={cycle.usageCycleId ?? ""}
+                  >
+                    {index === 0 ? "Atual · " : ""}
+                    {formatCycleLabel(cycle.cycleDate)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        ) : null}
+
         {error ? (
           <section className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}

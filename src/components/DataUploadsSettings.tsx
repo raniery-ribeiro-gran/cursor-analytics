@@ -72,8 +72,14 @@ export function DataUploadsSettings() {
         throw new Error(data.error ?? "Falha no upload");
       }
 
+      const upload = data.upload as DataUploadLog | undefined;
+      const inserted = upload?.rowCount ?? 0;
+      const ignored = upload?.ignoredRowCount ?? 0;
+      const parsed = upload?.parsedRowCount ?? inserted + ignored;
       setMessage(
-        `Upload concluído: ${data.upload?.rowCount ?? 0} linhas importadas.`,
+        datasetKey === "members_token_usage"
+          ? `Upload incremental concluído: ${inserted} eventos novos e ${ignored} ignorados por pertencerem a dias já armazenados (${parsed} lidos).`
+          : `Snapshot do ciclo ${upload?.usageCycleId ?? "—"} salvo: ${inserted} membros processados.`,
       );
       await loadStatus();
     } catch (err) {
@@ -150,6 +156,12 @@ export function DataUploadsSettings() {
                             {last.cycleDate ? ` · ciclo ${last.cycleDate}` : ""}
                             {last.rowCount
                               ? ` · ${last.rowCount} registros`
+                              : ""}
+                            {last.ignoredRowCount
+                              ? ` · ${last.ignoredRowCount} ignorados`
+                              : ""}
+                            {last.usageCycleId
+                              ? ` · ciclo histórico #${last.usageCycleId}`
                               : ""}
                             {last.uploadedByEmail
                               ? ` · por ${last.uploadedByEmail}`

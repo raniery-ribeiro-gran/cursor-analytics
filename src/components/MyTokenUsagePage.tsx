@@ -1,56 +1,67 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
+import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
 import { PageHeader } from "./PageHeader";
 import { TokenUsageUserDetailView } from "./MembersTokenUsageUserModal";
+import { TokenUsageDateRangeFilter } from "./TokenUsageDateRangeFilter";
 
 export function MyTokenUsagePage() {
   const [data, setData] = useState<MembersTokenUsageUserDetail | null>(null);
+  const [dateRange, setDateRange] =
+    useState<TokenUsageDateRangeMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
+  const load = useCallback(
+    async (range?: { from: string; to: string }) => {
       setLoading(true);
       setError(null);
-      setEmpty(false);
       try {
-        const response = await fetch("/api/estatisticas/my-token-usage");
-        const payload = await response.json();
-        if (cancelled) return;
+        const params = new URLSearchParams();
+        if (range) {
+          params.set("from", range.from);
+          params.set("to", range.to);
+        }
+        const response = await fetch(
+          `/api/estatisticas/my-token-usage${params.size ? `?${params}` : ""}`,
+        );
+        const payload = (await response.json()) as
+          | (MembersTokenUsageUserDetail & { error?: string; empty?: boolean })
+          | {
+              error?: string;
+              empty?: boolean;
+              dateRange?: TokenUsageDateRangeMeta;
+            };
 
+        if (payload.dateRange) setDateRange(payload.dateRange);
         if (response.status === 404 && payload.empty) {
           setEmpty(true);
           setData(null);
           return;
         }
-
         if (!response.ok) {
           throw new Error(payload.error ?? "Erro ao carregar My Token Usage");
         }
 
+        setEmpty(false);
         setData(payload as MembersTokenUsageUserDetail);
       } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Erro ao carregar My Token Usage",
-          );
-          setData(null);
-        }
+        setError(
+          err instanceof Error ? err.message : "Erro ao carregar My Token Usage",
+        );
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
-    }
+    },
+    [],
+  );
 
+  useEffect(() => {
     void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [load]);
 
   return (
     <>
@@ -61,7 +72,13 @@ export function MyTokenUsagePage() {
       />
 
       <main className="flex-1 px-6 py-6">
-        {loading ? (
+        <TokenUsageDateRangeFilter
+          meta={dateRange}
+          loading={loading}
+          onApply={(from, to) => void load({ from, to })}
+        />
+
+        {loading && !data ? (
           <p className="text-sm text-gran-muted">Carregando seu usage…</p>
         ) : null}
 
