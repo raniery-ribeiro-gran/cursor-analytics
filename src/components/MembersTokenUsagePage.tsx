@@ -26,9 +26,11 @@ import type {
   TokenUsageSummary,
   TokenUsageUserRow,
 } from "@/lib/membersTokenUsageStats";
+import type { TeamMembersCycleUsage } from "@/lib/teamTokenUsageStats";
 import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
 import { PageHeader } from "./PageHeader";
 import { MembersTokenUsageUserModal } from "./MembersTokenUsageUserModal";
+import { TeamCycleUsageSection } from "./TeamCycleUsageSection";
 import { TokenUsageDateRangeFilter } from "./TokenUsageDateRangeFilter";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
@@ -598,11 +600,13 @@ function OutliersChart({
   low,
   medianTokens,
   meanTokens,
+  benchmarkLabel = "time",
 }: {
   high: TokenUsageOutlier[];
   low: TokenUsageOutlier[];
   medianTokens: number;
   meanTokens: number;
+  benchmarkLabel?: string;
 }) {
   const topHigh = high.slice(0, 8);
   const topLow = low.slice(0, 8);
@@ -612,7 +616,7 @@ function OutliersChart({
       <div className="mb-4 flex flex-wrap gap-3 text-xs">
         <div className="rounded-md border border-gray-200 bg-gran-bg/60 px-3 py-2">
           <p className="font-bold uppercase tracking-wide text-gran-muted">
-            Mediana do time
+            Mediana · {benchmarkLabel}
           </p>
           <p className="mt-0.5 font-montserrat text-sm font-bold text-gran-navy">
             {formatTokens(medianTokens)}
@@ -620,7 +624,7 @@ function OutliersChart({
         </div>
         <div className="rounded-md border border-gray-200 bg-gran-bg/60 px-3 py-2">
           <p className="font-bold uppercase tracking-wide text-gran-muted">
-            Média do time
+            Média · {benchmarkLabel}
           </p>
           <p className="mt-0.5 font-montserrat text-sm font-bold text-gran-navy">
             {formatTokens(meanTokens)}
@@ -667,7 +671,7 @@ function OutliersChart({
               Abaixo do normal
             </p>
             <p className="text-[11px] text-gran-muted">
-              Comparado à mediana do time
+              Comparado à mediana · {benchmarkLabel}
             </p>
           </div>
           <OutlierBars
@@ -680,7 +684,7 @@ function OutliersChart({
 
       <p className="mt-4 text-xs text-gran-muted">
         Detecção por IQR (Q3+1.5·IQR / Q1−1.5·IQR) e referência de mediana.
-        Valores “× a mediana” mostram o quanto a pessoa foge do centro do time.
+        Valores “× a mediana” mostram o quanto a pessoa foge do benchmark.
       </p>
     </div>
   );
@@ -721,7 +725,7 @@ export function MembersTokenUsagePage({
   const [teamMeta, setTeamMeta] = useState<{
     organogramReports: number;
     emptyReason: "no_reports" | "no_usage" | null;
-    restOfOrg: {
+    directorate: {
       users: number;
       meanTokensPerUser: number;
       medianTokensPerUser: number;
@@ -730,6 +734,10 @@ export function MembersTokenUsagePage({
     } | null;
     leaderName: string;
   } | null>(null);
+  const [teamCycleUsage, setTeamCycleUsage] =
+    useState<TeamMembersCycleUsage | null>(null);
+  const [teamCycleLoading, setTeamCycleLoading] = useState(isTeam);
+  const [teamCycleError, setTeamCycleError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -830,7 +838,7 @@ export function MembersTokenUsagePage({
         error?: string;
         organogramReports?: number;
         emptyReason?: "no_reports" | "no_usage" | null;
-        restOfOrg?: {
+        directorate?: {
           users: number;
           meanTokensPerUser: number;
           medianTokensPerUser: number;
@@ -860,7 +868,7 @@ export function MembersTokenUsagePage({
         setTeamMeta({
           organogramReports: data.organogramReports ?? 0,
           emptyReason: data.emptyReason ?? null,
-          restOfOrg: data.restOfOrg ?? null,
+          directorate: data.directorate ?? null,
           leaderName: data.leader?.name ?? "",
         });
       } else {
@@ -873,9 +881,37 @@ export function MembersTokenUsagePage({
     }
   }, [apiBase, isTeam]);
 
+  const loadTeamCycle = useCallback(async () => {
+    if (!isTeam) return;
+    setTeamCycleLoading(true);
+    setTeamCycleError(null);
+    try {
+      const response = await fetch(
+        "/api/estatisticas/team-token-usage/cycle",
+      );
+      const data = (await response.json()) as TeamMembersCycleUsage & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Erro ao carregar uso do ciclo");
+      }
+      setTeamCycleUsage(data);
+    } catch (err) {
+      setTeamCycleError(
+        err instanceof Error ? err.message : "Erro ao carregar uso do ciclo",
+      );
+    } finally {
+      setTeamCycleLoading(false);
+    }
+  }, [isTeam]);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadTeamCycle();
+  }, [loadTeamCycle]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -903,7 +939,7 @@ export function MembersTokenUsagePage({
   const subtitle = isTeam
     ? upload
       ? `Liderados de ${teamMeta?.leaderName || "você"} · ${teamMeta?.organogramReports ?? 0} no organograma · ${summary?.users ?? 0} com usage · carga ${formatUploadDate(upload.uploadedAt)}`
-      : "Consumo dos liderados (árvore completa) comparado ao restante da organização"
+      : "Consumo dos liderados comparado a toda a Diretoria de TI"
     : upload
       ? `Usage events · export ${upload.cycleDate ?? "—"} · última carga ${formatUploadDate(upload.uploadedAt)}`
       : "Usage events de tokens por membro (painel Cursor)";
@@ -914,13 +950,14 @@ export function MembersTokenUsagePage({
         title={pageTitle}
         subtitle={subtitle}
         icon={pageIcon}
-        onRefresh={() =>
+        onRefresh={() => {
           void load(
             dateRange?.from && dateRange.to
               ? { from: dateRange.from, to: dateRange.to }
               : undefined,
-          )
-        }
+          );
+          void loadTeamCycle();
+        }}
         loading={loading}
         refreshLabel="Atualizar"
       />
@@ -974,31 +1011,31 @@ export function MembersTokenUsagePage({
                 {WORKDAY_END_HOUR}h (Brasília). Eventos fora dessa janela são
                 tratados como tendência de risco.
                 {isTeam
-                  ? " Comparativos usam a média do restante da organização (fora do seu time)."
+                  ? " Comparativos usam a média por pessoa de toda a Diretoria de TI."
                   : ""}
               </p>
             </section>
 
-            {isTeam && teamMeta?.restOfOrg ? (
+            {isTeam && teamMeta?.directorate ? (
               <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard
-                  label="Média tokens (restante)"
-                  value={formatTokens(teamMeta.restOfOrg.meanTokensPerUser)}
-                  hint={`Mediana ${formatTokens(teamMeta.restOfOrg.medianTokensPerUser)} · ${teamMeta.restOfOrg.users} pessoas`}
+                  label="Média por pessoa · Diretoria de TI"
+                  value={formatTokens(teamMeta.directorate.meanTokensPerUser)}
+                  hint={`Mediana ${formatTokens(teamMeta.directorate.medianTokensPerUser)} · ${teamMeta.directorate.users} pessoas`}
                 />
                 <KpiCard
-                  label="Média tokens (seu time)"
+                  label="Média por pessoa · seu time"
                   value={formatTokens(summary.meanTokensPerUser)}
                   hint={`Mediana ${formatTokens(summary.medianTokensPerUser)} · ${summary.users} pessoas`}
                 />
                 <KpiCard
-                  label="% fora (restante)"
-                  value={`${teamMeta.restOfOrg.meanOutsidePct}%`}
+                  label="% fora · Diretoria de TI"
+                  value={`${teamMeta.directorate.meanOutsidePct}%`}
                   accent="amber"
                 />
                 <KpiCard
-                  label="Cost médio (restante)"
-                  value={formatUsd(teamMeta.restOfOrg.meanCostUsdPerUser)}
+                  label="Cost médio · Diretoria de TI"
+                  value={formatUsd(teamMeta.directorate.meanCostUsdPerUser)}
                   accent="red"
                 />
               </section>
@@ -1146,13 +1183,22 @@ export function MembersTokenUsagePage({
 
             <Section
               title="Saiu da curva"
-              subtitle="Outliers de tokens vs mediana do time (método IQR) — barras com linha de referência"
+              subtitle={`Outliers de tokens vs mediana ${isTeam ? "da Diretoria de TI" : "do time"} (método IQR) — barras com linha de referência`}
             >
               <OutliersChart
                 high={outliersHigh}
                 low={outliersLow}
-                medianTokens={summary.medianTokensPerUser}
-                meanTokens={summary.meanTokensPerUser}
+                medianTokens={
+                  isTeam && teamMeta?.directorate
+                    ? teamMeta.directorate.medianTokensPerUser
+                    : summary.medianTokensPerUser
+                }
+                meanTokens={
+                  isTeam && teamMeta?.directorate
+                    ? teamMeta.directorate.meanTokensPerUser
+                    : summary.meanTokensPerUser
+                }
+                benchmarkLabel={isTeam ? "Diretoria de TI" : "time"}
               />
             </Section>
 
@@ -1366,6 +1412,14 @@ export function MembersTokenUsagePage({
             Carregando estatísticas…
           </div>
         ) : null}
+
+        {isTeam ? (
+          <TeamCycleUsageSection
+            data={teamCycleUsage}
+            loading={teamCycleLoading}
+            error={teamCycleError}
+          />
+        ) : null}
       </main>
 
       <SlotPeopleModal
@@ -1382,15 +1436,15 @@ export function MembersTokenUsagePage({
         error={userError}
         data={userData}
         onClose={closeUserDetail}
-        benchmarkLabel={isTeam ? "Média restante da org" : undefined}
+        benchmarkLabel={isTeam ? "Média Diretoria de TI" : undefined}
         compareTitle={
           isTeam
-            ? "Comparativo com a média do restante da organização"
+            ? "Comparativo do liderado com toda a Diretoria de TI"
             : undefined
         }
         dailyAvgLabel={
           isTeam
-            ? "média do restante da org no dia"
+            ? "média da Diretoria de TI no dia"
             : undefined
         }
         rankingLabel={isTeam ? "no time" : undefined}

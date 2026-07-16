@@ -48,7 +48,7 @@ export const USER_ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   leitor:
     "Acesso à home (My Token Usage): vê o próprio consumo de tokens comparado às tendências gerais do time.",
   lider:
-    "Acesso à home e ao Team Token Usage: acompanha o consumo dos liderados (toda a hierarquia abaixo) comparado ao restante da organização.",
+    "Acesso à home e ao Team Token Usage: acompanha o consumo dos liderados (toda a hierarquia abaixo) comparado à média de toda a Diretoria de TI.",
 };
 
 export const ADMIN_ONLY_PAGE_PATHS = [

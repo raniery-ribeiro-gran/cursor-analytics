@@ -113,9 +113,9 @@ function heatmapCellStyle(
 
 export function TokenUsageUserDetailView({
   data,
-  benchmarkLabel = "Média time",
-  compareTitle = "Comparativo com a média do time",
-  dailyAvgLabel = "média por usuário ativo no dia",
+  benchmarkLabel = "Média Diretoria de TI",
+  compareTitle = "Comparativo do seu uso com toda a Diretoria de TI",
+  dailyAvgLabel = "média por usuário ativo da Diretoria de TI no dia",
 }: {
   data: MembersTokenUsageUserDetail;
   benchmarkLabel?: string;

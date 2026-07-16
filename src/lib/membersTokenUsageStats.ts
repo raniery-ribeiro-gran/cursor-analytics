@@ -825,6 +825,7 @@ function mapUserMetrics(row: Record<string, unknown>): TokenUsageUserDetailMetri
 
 export interface MembersTokenUsageUserDetailOptions {
   dateRange?: TokenUsageDateRangeInput;
+  compareLabel?: string;
   /**
    * Pool usado para médias / z-score / outliers / média diária.
    * Default: todos os usuários do upload.
@@ -996,9 +997,10 @@ export async function getMembersTokenUsageUserDetail(
   const medianTokens = median(sortedTokens);
   let outlierSide: "high" | "low" | null = null;
   let outlierReason: string | null = null;
+  const compareLabel = options.compareLabel ?? "Diretoria de TI";
   if (user.totalTokens > highFence) {
     outlierSide = "high";
-    outlierReason = `Acima do Q3+1.5·IQR (${formatFence(highFence)}) vs restante da org`;
+    outlierReason = `Acima do Q3+1.5·IQR (${formatFence(highFence)}) vs ${compareLabel}`;
   } else if (
     user.totalTokens <= lowFence ||
     (medianTokens > 0 && user.totalTokens < medianTokens * 0.15)
@@ -1006,8 +1008,8 @@ export async function getMembersTokenUsageUserDetail(
     outlierSide = "low";
     outlierReason =
       user.totalTokens <= lowFence
-        ? `Abaixo do Q1−1.5·IQR (${formatFence(lowFence)}) vs restante da org`
-        : "Muito abaixo da mediana do restante (<15%)";
+        ? `Abaixo do Q1−1.5·IQR (${formatFence(lowFence)}) vs ${compareLabel}`
+        : `Muito abaixo da mediana da ${compareLabel} (<15%)`;
   }
 
   const compareEmailList = options.compareEmails

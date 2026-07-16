@@ -67,7 +67,7 @@ export function MyTokenUsagePage() {
     <>
       <PageHeader
         title="My Token Usage"
-        subtitle="Seu consumo de tokens comparado às tendências gerais do time (último upload)."
+        subtitle="Seu consumo de tokens comparado às tendências de toda a Diretoria de TI."
         icon="fa-chart-line"
       />
 

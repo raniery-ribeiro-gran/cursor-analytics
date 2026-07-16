@@ -17,12 +17,16 @@ import {
 } from "./organogramHierarchy";
 import { findPersonByEmail } from "./organogramDb";
 import {
+  getMembersUsageCycleData,
+  type MembersUsageMember,
+} from "./membersUsageStats";
+import {
   tokenUsageRangeParams,
   type TokenUsageDateRangeInput,
   type TokenUsageDateRangeMeta,
 } from "./tokenUsageDateRange";
 
-export interface RestOfOrgBenchmark {
+export interface DirectorateBenchmark {
   users: number;
   meanTokensPerUser: number;
   medianTokensPerUser: number;
@@ -42,8 +46,74 @@ export interface TeamTokenUsageData extends MembersTokenUsageData {
   };
   organogramReports: number;
   reports: OrganogramDescendant[];
-  restOfOrg: RestOfOrgBenchmark | null;
+  directorate: DirectorateBenchmark | null;
   emptyReason: "no_reports" | "no_usage" | null;
+}
+
+export interface TeamMembersCycleMember extends MembersUsageMember {
+  depth: number;
+}
+
+export interface TeamMembersCycleUsage {
+  upload: DataUploadLog | null;
+  cycleDate: string | null;
+  usageCycleId: number | null;
+  organogramReports: number;
+  membersWithUsage: number;
+  includedTotal: number;
+  freeTotal: number;
+  onDemandTotal: number;
+  withOnDemand: number;
+  idle: number;
+  members: TeamMembersCycleMember[];
+}
+
+/** Snapshot cumulativo do ciclo atual, limitado à árvore do líder. */
+export async function getTeamMembersCycleUsage(
+  leaderEmail: string,
+): Promise<TeamMembersCycleUsage> {
+  const reports = await getOrganogramDescendants(leaderEmail);
+  const reportByEmail = new Map(
+    reports.map((report) => [report.email.toLowerCase(), report]),
+  );
+  const cycle = await getMembersUsageCycleData();
+  const members: TeamMembersCycleMember[] = cycle.members
+    .filter((member) => reportByEmail.has(member.email.toLowerCase()))
+    .map((member) => ({
+      ...member,
+      depth: reportByEmail.get(member.email.toLowerCase())?.depth ?? 1,
+    }))
+    .sort(
+      (a, b) =>
+        b.onDemandUsage - a.onDemandUsage ||
+        b.includedUsage + b.freeUsage - (a.includedUsage + a.freeUsage) ||
+        a.name.localeCompare(b.name, "pt-BR"),
+    );
+
+  return {
+    upload: cycle.upload,
+    cycleDate: cycle.upload?.cycleDate ?? null,
+    usageCycleId: cycle.upload?.usageCycleId ?? null,
+    organogramReports: reports.length,
+    membersWithUsage: members.length,
+    includedTotal: members.reduce(
+      (sum, member) => sum + member.includedUsage,
+      0,
+    ),
+    freeTotal: members.reduce((sum, member) => sum + member.freeUsage, 0),
+    onDemandTotal: members.reduce(
+      (sum, member) => sum + member.onDemandUsage,
+      0,
+    ),
+    withOnDemand: members.filter((member) => member.onDemandUsage > 0).length,
+    idle: members.filter(
+      (member) =>
+        member.includedUsage === 0 &&
+        member.freeUsage === 0 &&
+        member.onDemandUsage === 0,
+    ).length,
+    members,
+  };
 }
 
 function emptyTeamPayload(
@@ -78,7 +148,7 @@ function emptyTeamPayload(
     leader: { email: leaderEmail, name: leaderName },
     organogramReports: reports.length,
     reports,
-    restOfOrg: null,
+    directorate: null,
     emptyReason,
   };
 }
@@ -167,7 +237,9 @@ function buildSummaryFromUsers(
   };
 }
 
-function buildRestBenchmark(users: TokenUsageUserRow[]): RestOfOrgBenchmark {
+function buildDirectorateBenchmark(
+  users: TokenUsageUserRow[],
+): DirectorateBenchmark {
   const events = users.reduce((sum, user) => sum + user.events, 0);
   const totalTokens = users.reduce((sum, user) => sum + user.totalTokens, 0);
   const costUsd =
@@ -196,26 +268,26 @@ function buildRestBenchmark(users: TokenUsageUserRow[]): RestOfOrgBenchmark {
 
 function buildOutliersAgainstRest(
   teamUsers: TokenUsageUserRow[],
-  restUsers: TokenUsageUserRow[],
+  directorateUsers: TokenUsageUserRow[],
 ): { high: TokenUsageOutlier[]; low: TokenUsageOutlier[] } {
-  const restTokens = restUsers.map((user) => user.totalTokens);
-  const sorted = [...restTokens].sort((a, b) => a - b);
+  const directorateTokens = directorateUsers.map((user) => user.totalTokens);
+  const sorted = [...directorateTokens].sort((a, b) => a - b);
   const q1 = quantile(sorted, 0.25);
   const q3 = quantile(sorted, 0.75);
   const iqr = Math.max(q3 - q1, 0);
   const highFence = q3 + 1.5 * iqr;
   const lowFence = Math.max(q1 - 1.5 * iqr, 0);
-  const medianTokens = median(restTokens);
-  const meanTokens = mean(restTokens);
+  const medianTokens = median(directorateTokens);
+  const meanTokens = mean(directorateTokens);
   const deviation =
-    restTokens.length < 2
+    directorateTokens.length < 2
       ? 0
       : Math.sqrt(
-          restTokens.reduce(
+          directorateTokens.reduce(
             (sum, value) => sum + (value - meanTokens) ** 2,
             0,
           ) /
-            (restTokens.length - 1),
+            (directorateTokens.length - 1),
         );
 
   const high: TokenUsageOutlier[] = teamUsers
@@ -231,7 +303,7 @@ function buildOutliersAgainstRest(
         deviation > 0
           ? Math.round(((user.totalTokens - meanTokens) / deviation) * 10) / 10
           : 0,
-      reason: `Acima do Q3+1.5·IQR do restante (${formatFence(highFence)})`,
+      reason: `Acima do Q3+1.5·IQR da Diretoria de TI (${formatFence(highFence)})`,
     }));
 
   const low: TokenUsageOutlier[] = [...teamUsers]
@@ -254,15 +326,15 @@ function buildOutliersAgainstRest(
           : 0,
       reason:
         user.totalTokens <= lowFence
-          ? `Abaixo do Q1−1.5·IQR do restante (${formatFence(lowFence)})`
-          : "Muito abaixo da mediana do restante (<15%)",
+          ? `Abaixo do Q1−1.5·IQR da Diretoria de TI (${formatFence(lowFence)})`
+          : "Muito abaixo da mediana da Diretoria de TI (<15%)",
     }));
 
   return { high, low };
 }
 
 /**
- * Token usage apenas dos liderados (árvore completa), com benchmark = restante da org.
+ * Token usage dos liderados, com benchmark = toda a Diretoria de TI.
  */
 export async function getTeamTokenUsageData(
   leaderEmailInput: string,
@@ -299,7 +371,7 @@ export async function getTeamTokenUsageData(
   }
 
   const teamUsers = full.users.filter((user) => teamEmails.has(user.email));
-  const restUsers = full.users.filter((user) => !teamEmails.has(user.email));
+  const directorateUsers = full.users;
 
   if (teamUsers.length === 0) {
     return {
@@ -311,7 +383,10 @@ export async function getTeamTokenUsageData(
         full.upload,
         full.dateRange,
       ),
-      restOfOrg: restUsers.length > 0 ? buildRestBenchmark(restUsers) : null,
+      directorate:
+        directorateUsers.length > 0
+          ? buildDirectorateBenchmark(directorateUsers)
+          : null,
     };
   }
 
@@ -325,7 +400,7 @@ export async function getTeamTokenUsageData(
 
   const { high: outliersHigh, low: outliersLow } = buildOutliersAgainstRest(
     teamUsers,
-    restUsers.length > 0 ? restUsers : full.users,
+    directorateUsers,
   );
 
   const outsideHeavyUsers = [...teamUsers]
@@ -372,7 +447,10 @@ export async function getTeamTokenUsageData(
     leader: { email: leaderEmail, name: leaderName },
     organogramReports: reports.length,
     reports,
-    restOfOrg: restUsers.length > 0 ? buildRestBenchmark(restUsers) : null,
+    directorate:
+      directorateUsers.length > 0
+        ? buildDirectorateBenchmark(directorateUsers)
+        : null,
     emptyReason: null,
   };
 }
@@ -391,15 +469,14 @@ export async function getTeamTokenUsageUserDetail(
   }
 
   const full = await getMembersTokenUsageData(dateRangeInput);
-  const restEmails = new Set(
-    full.users
-      .map((user) => user.email)
-      .filter((email) => !teamEmails.has(email)),
+  const directorateEmails = new Set(
+    full.users.map((user) => user.email),
   );
 
   return getMembersTokenUsageUserDetail(member, {
     dateRange: dateRangeInput,
-    compareEmails: restEmails.size > 0 ? restEmails : undefined,
+    compareEmails:
+      directorateEmails.size > 0 ? directorateEmails : undefined,
     rankAmongEmails: teamEmails,
   });
 }
