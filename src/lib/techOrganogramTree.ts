@@ -105,6 +105,13 @@ export function buildTechOrganogramTree(
       continue;
     }
 
+    // Sem líder informado: a própria pessoa é raiz (ex.: Rodrigo Calado).
+    const hasLeaderHint =
+      Boolean(leaderEmail) || Boolean(node.leaderName.trim());
+    if (!hasLeaderHint) {
+      continue;
+    }
+
     const externalKey = leaderEmail
       ? `email:${leaderEmail}`
       : `name:${normalizePersonName(node.leaderName) || "sem-lider"}`;
