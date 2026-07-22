@@ -28,8 +28,9 @@ import type {
 } from "@/lib/membersTokenUsageStats";
 import type { TeamMembersCycleUsage } from "@/lib/teamTokenUsageStats";
 import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
-import { PageHeader } from "./PageHeader";
 import { MembersTokenUsageUserModal } from "./MembersTokenUsageUserModal";
+import { PageHeader } from "./PageHeader";
+import { PersonNameTooltip } from "./PersonNameTooltip";
 import { TeamCycleUsageSection } from "./TeamCycleUsageSection";
 import { TokenUsageDateRangeFilter } from "./TokenUsageDateRangeFilter";
 
@@ -468,7 +469,11 @@ function SlotPeopleModal({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-gran-navy">
                       <span className="mr-2 text-gran-muted">{index + 1}.</span>
-                      {person.name}
+                      <PersonNameTooltip
+                        name={person.name}
+                        tribe={person.tribe}
+                        leaderName={person.leaderName}
+                      />
                     </p>
                     <p className="truncate text-xs text-gran-muted">
                       {person.email}
@@ -541,12 +546,12 @@ function OutlierBars({
         return (
           <div key={item.email} className="group">
             <div className="mb-1 flex items-baseline justify-between gap-2">
-              <p
-                className="truncate text-sm font-semibold text-gran-navy"
-                title={`${item.name} · ${item.email}`}
-              >
-                {shortUserLabel(item.name, item.email)}
-              </p>
+              <PersonNameTooltip
+                name={shortUserLabel(item.name, item.email)}
+                tribe={item.tribe}
+                leaderName={item.leaderName}
+                className="min-w-0 text-sm font-semibold text-gran-navy"
+              />
               <div className="flex shrink-0 items-center gap-2 text-xs">
                 <span
                   className={`rounded-full px-2 py-0.5 font-semibold tabular-nums ${
@@ -1133,7 +1138,11 @@ export function MembersTokenUsagePage({
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-gran-navy">
                           <span className="mr-2 text-gran-muted">{index + 1}.</span>
-                          {user.name}
+                          <PersonNameTooltip
+                            name={user.name}
+                            tribe={user.tribe}
+                            leaderName={user.leaderName}
+                          />
                         </p>
                         <p className="truncate text-xs text-gran-muted">
                           {user.email}
@@ -1175,7 +1184,11 @@ export function MembersTokenUsagePage({
                             <span className="mr-2 text-gran-muted">
                               {index + 1}.
                             </span>
-                            {user.name}
+                            <PersonNameTooltip
+                              name={user.name}
+                              tribe={user.tribe}
+                              leaderName={user.leaderName}
+                            />
                           </p>
                           <p className="truncate text-xs text-gran-muted">
                             {user.email}
@@ -1368,7 +1381,11 @@ export function MembersTokenUsagePage({
                       {rows.map((row) => (
                         <tr key={row.email} className="hover:bg-gran-bg/40">
                           <td className="px-4 py-3 font-semibold text-gran-navy">
-                            {row.name}
+                            <PersonNameTooltip
+                              name={row.name}
+                              tribe={row.tribe}
+                              leaderName={row.leaderName}
+                            />
                           </td>
                           <td className="px-4 py-3 text-gran-muted">{row.email}</td>
                           <td className="px-4 py-3 text-right tabular-nums text-gran-muted">

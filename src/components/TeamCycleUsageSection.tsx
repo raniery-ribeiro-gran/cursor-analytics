@@ -1,6 +1,7 @@
 "use client";
 
 import type { TeamMembersCycleUsage } from "@/lib/teamTokenUsageStats";
+import { PersonNameTooltip } from "./PersonNameTooltip";
 
 function formatUsd(value: number): string {
   return value.toLocaleString("en-US", {
@@ -140,7 +141,11 @@ export function TeamCycleUsageSection({
                       <tr key={member.email} className="hover:bg-gran-bg/40">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-gran-navy">
-                            {member.name}
+                            <PersonNameTooltip
+                              name={member.name}
+                              tribe={member.tribe}
+                              leaderName={member.leaderName}
+                            />
                           </p>
                           <p className="text-xs text-gran-muted">
                             {member.email}

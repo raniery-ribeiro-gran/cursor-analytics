@@ -41,6 +41,8 @@ export interface TokenUsageModelBreakdown {
 export interface TokenUsageUserRow {
   email: string;
   name: string;
+  tribe: string | null;
+  leaderName: string | null;
   events: number;
   totalTokens: number;
   outputTokens: number;
@@ -89,6 +91,8 @@ export interface TokenUsageWorkdayWindow {
 export interface TokenUsageOutlier {
   email: string;
   name: string;
+  tribe: string | null;
+  leaderName: string | null;
   totalTokens: number;
   events: number;
   outsidePct: number;
@@ -326,6 +330,8 @@ export async function getMembersTokenUsageData(
     return {
       email,
       name: displayNameFromEmail(email, person?.name ?? null),
+      tribe: (person?.tribe || person?.department || "").trim() || null,
+      leaderName: person?.managerName?.trim() || null,
       events: userEvents,
       totalTokens: tokens(row.total_tokens),
       outputTokens: tokens(row.output_tokens),
@@ -360,6 +366,8 @@ export async function getMembersTokenUsageData(
     .map((user) => ({
       email: user.email,
       name: user.name,
+      tribe: user.tribe,
+      leaderName: user.leaderName,
       totalTokens: user.totalTokens,
       events: user.events,
       outsidePct: user.outsidePct,
@@ -381,6 +389,8 @@ export async function getMembersTokenUsageData(
     .map((user) => ({
       email: user.email,
       name: user.name,
+      tribe: user.tribe,
+      leaderName: user.leaderName,
       totalTokens: user.totalTokens,
       events: user.events,
       outsidePct: user.outsidePct,
@@ -572,6 +582,8 @@ const WEEKDAY_LABELS = [
 export interface TokenUsageSlotPerson {
   email: string;
   name: string;
+  tribe: string | null;
+  leaderName: string | null;
   events: number;
   totalTokens: number;
 }
@@ -696,6 +708,8 @@ export async function getTokenUsageSlotPeople(
     return {
       email,
       name: displayNameFromEmail(email, person?.name ?? null),
+      tribe: (person?.tribe || person?.department || "").trim() || null,
+      leaderName: person?.managerName?.trim() || null,
       events: Number(row.events ?? 0),
       totalTokens: tokens(row.total_tokens),
     };

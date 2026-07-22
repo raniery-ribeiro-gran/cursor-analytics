@@ -296,6 +296,8 @@ function buildOutliersAgainstRest(
     .map((user) => ({
       email: user.email,
       name: user.name,
+      tribe: user.tribe,
+      leaderName: user.leaderName,
       totalTokens: user.totalTokens,
       events: user.events,
       outsidePct: user.outsidePct,
@@ -317,6 +319,8 @@ function buildOutliersAgainstRest(
     .map((user) => ({
       email: user.email,
       name: user.name,
+      tribe: user.tribe,
+      leaderName: user.leaderName,
       totalTokens: user.totalTokens,
       events: user.events,
       outsidePct: user.outsidePct,

@@ -8,6 +8,7 @@ import type {
 } from "@/lib/membersUsageStats";
 import type { DataUploadLog } from "@/lib/dataUploadsDb";
 import { PageHeader } from "./PageHeader";
+import { PersonNameTooltip } from "./PersonNameTooltip";
 
 type SeatFilter = "all" | string;
 type RoleFilter = "all" | string;
@@ -380,7 +381,11 @@ export function MembersUsageCyclePage() {
                             <span className="mr-2 text-gran-muted">
                               {index + 1}.
                             </span>
-                            {row.name}
+                            <PersonNameTooltip
+                              name={row.name}
+                              tribe={row.tribe}
+                              leaderName={row.leaderName}
+                            />
                           </p>
                           <p className="truncate text-xs text-gran-muted">
                             {row.email}
@@ -522,7 +527,11 @@ export function MembersUsageCyclePage() {
                       {rows.map((row) => (
                         <tr key={row.email} className="hover:bg-gran-bg/40">
                           <td className="px-4 py-3 font-semibold text-gran-navy">
-                            {row.name}
+                            <PersonNameTooltip
+                              name={row.name}
+                              tribe={row.tribe}
+                              leaderName={row.leaderName}
+                            />
                           </td>
                           <td className="px-4 py-3 text-gran-muted">
                             {row.email}

@@ -15,6 +15,8 @@ export interface MembersUsageMember {
   freeUsageRaw: string;
   freeUsageCapped: boolean;
   onDemandUsage: number;
+  tribe: string | null;
+  leaderName: string | null;
 }
 
 export interface MembersUsageSummary {
@@ -59,10 +61,22 @@ function money(value: unknown): number {
   return Math.round(n * 100) / 100;
 }
 
-function mapMember(row: Record<string, unknown>): MembersUsageMember {
+function mapMember(
+  row: Record<string, unknown>,
+  organogram?: {
+    findByEmail: (email: string) => {
+      tribe?: string;
+      department?: string;
+      managerName?: string;
+      name?: string;
+    } | null;
+  },
+): MembersUsageMember {
+  const email = String(row.email ?? "");
+  const person = organogram?.findByEmail(email) ?? null;
   return {
-    name: String(row.name ?? ""),
-    email: String(row.email ?? ""),
+    name: String(row.name ?? person?.name ?? ""),
+    email,
     role: String(row.role ?? ""),
     seatType: String(row.seat_type ?? ""),
     includedUsage: money(row.included_usage),
@@ -70,6 +84,8 @@ function mapMember(row: Record<string, unknown>): MembersUsageMember {
     freeUsageRaw: String(row.free_usage_raw ?? "0.00"),
     freeUsageCapped: Number(row.free_usage_capped ?? 0) === 1,
     onDemandUsage: money(row.on_demand_usage),
+    tribe: (person?.tribe || person?.department || "").trim() || null,
+    leaderName: person?.managerName?.trim() || null,
   };
 }
 
@@ -170,8 +186,10 @@ export async function getMembersUsageCycleData(
     [upload.id],
   );
 
+  const { getOrganogramIndex } = await import("./organogramDb");
+  const organogram = await getOrganogramIndex();
   const members = (membersResult.rows as Record<string, unknown>[]).map(
-    mapMember,
+    (row) => mapMember(row, organogram),
   );
   const topOnDemand = members
     .filter((member) => member.onDemandUsage > 0)
