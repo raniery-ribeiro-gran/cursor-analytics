@@ -6,9 +6,10 @@ import {
   WORKDAY_START_HOUR,
 } from "@/lib/membersTokenUsageConstants";
 import type { MembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
-
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
-const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+import {
+  formatHeatmapDayLabel,
+  HEATMAP_DAY_COUNT,
+} from "@/lib/tokenUsageDateRange";
 
 function formatUsd(value: number): string {
   return value.toLocaleString("en-US", {
@@ -122,12 +123,20 @@ export function TokenUsageUserDetailView({
   compareTitle?: string;
   dailyAvgLabel?: string;
 }) {
+  const heatDates = useMemo(() => {
+    const unique = [
+      ...new Set(data.heatmap.map((cell) => cell.date).filter(Boolean)),
+    ];
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [data.heatmap]);
+
   const heatMap = useMemo(() => {
-    const nested = new Map<string, { events: number; totalTokens: number }>();
+    const nested = new Map<string, { events: number; totalTokens: number; weekday: number }>();
     for (const cell of data.heatmap) {
-      nested.set(`${cell.weekday}-${cell.hour}`, {
+      nested.set(`${cell.date}-${cell.hour}`, {
         events: cell.events,
         totalTokens: cell.totalTokens,
+        weekday: cell.weekday,
       });
     }
     return nested;
@@ -385,14 +394,14 @@ export function TokenUsageUserDetailView({
           Janela de trabalho (mapa de calor)
         </h4>
         <p className="mt-1 text-xs text-gran-muted">
-          Seus eventos por dia da semana × hora (Brasília)
+          Seus eventos nos últimos {HEATMAP_DAY_COUNT} dias × hora (Brasília)
         </p>
         <div className="mt-4 overflow-x-auto">
-          <div className="min-w-[820px]">
+          <div className="min-w-[880px]">
             <div
               className="grid gap-1"
               style={{
-                gridTemplateColumns: `36px repeat(24, minmax(0, 1fr))`,
+                gridTemplateColumns: `72px repeat(24, minmax(0, 1fr))`,
               }}
             >
               <div />
@@ -408,28 +417,32 @@ export function TokenUsageUserDetailView({
                   {hour}
                 </div>
               ))}
-              {WEEKDAY_ORDER.map((weekday) => (
-                <div key={weekday} className="contents">
-                  <div className="flex items-center text-xs font-semibold text-gran-navy">
-                    {WEEKDAYS[weekday]}
+              {heatDates.map((date) => {
+                const sample = heatMap.get(`${date}-0`);
+                const label = formatHeatmapDayLabel(date, sample?.weekday);
+                return (
+                  <div key={date} className="contents">
+                    <div className="flex items-center text-[11px] font-semibold leading-tight text-gran-navy">
+                      {label}
+                    </div>
+                    {Array.from({ length: 24 }, (_, hour) => {
+                      const cell = heatMap.get(`${date}-${hour}`);
+                      const events = cell?.events ?? 0;
+                      const style = heatmapCellStyle(events, maxHeatEvents);
+                      return (
+                        <div
+                          key={`${date}-${hour}`}
+                          title={`${label} ${hour}h · ${events} evt · ${formatTokens(cell?.totalTokens ?? 0)}`}
+                          className="flex h-7 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums"
+                          style={style}
+                        >
+                          {events > 0 ? events : ""}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {Array.from({ length: 24 }, (_, hour) => {
-                    const cell = heatMap.get(`${weekday}-${hour}`);
-                    const events = cell?.events ?? 0;
-                    const style = heatmapCellStyle(events, maxHeatEvents);
-                    return (
-                      <div
-                        key={`${weekday}-${hour}`}
-                        title={`${WEEKDAYS[weekday]} ${hour}h · ${events} evt · ${formatTokens(cell?.totalTokens ?? 0)}`}
-                        className="flex h-8 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums"
-                        style={style}
-                      >
-                        {events > 0 ? events : ""}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

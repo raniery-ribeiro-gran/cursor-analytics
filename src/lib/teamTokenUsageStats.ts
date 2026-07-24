@@ -5,6 +5,7 @@ import {
 import {
   getMembersTokenUsageData,
   getMembersTokenUsageUserDetail,
+  buildTokenUsageHeatmap,
   type MembersTokenUsageData,
   type MembersTokenUsageUserDetail,
   type TokenUsageOutlier,
@@ -593,13 +594,14 @@ async function getScopedChartsForEmails(
   const heatResult = await query(
     `
     SELECT
+      ${EVENT_BRT_DATE} AS day,
       ${EVENT_BRT_DOW} AS weekday,
       ${EVENT_BRT_HOUR} AS hour,
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
     WHERE ${emailFilter}
-    GROUP BY weekday, hour
+    GROUP BY day, weekday, hour
   `,
     params,
   );
@@ -653,12 +655,10 @@ async function getScopedChartsForEmails(
   return {
     daily,
     hourly: Array.from(hourlyMap.values()),
-    heatmap: (heatResult.rows as Record<string, unknown>[]).map((row) => ({
-      weekday: Number(row.weekday ?? 0),
-      hour: Number(row.hour ?? 0),
-      events: Number(row.events ?? 0),
-      totalTokens: Math.round(Number(row.total_tokens ?? 0)),
-    })),
+    heatmap: buildTokenUsageHeatmap(
+      heatResult.rows as Record<string, unknown>[],
+      dateRange,
+    ),
     workWindows: (windowResult.rows as Record<string, unknown>[]).map(
       (row) => {
         const firstHour = Number(row.first_hour ?? 0);

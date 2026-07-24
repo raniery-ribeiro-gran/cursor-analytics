@@ -28,15 +28,15 @@ import type {
 } from "@/lib/membersTokenUsageStats";
 import type { TeamMembersCycleUsage } from "@/lib/teamTokenUsageStats";
 import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
+import {
+  formatHeatmapDayLabel,
+  HEATMAP_DAY_COUNT,
+} from "@/lib/tokenUsageDateRange";
 import { MembersTokenUsageUserModal } from "./MembersTokenUsageUserModal";
 import { PageHeader } from "./PageHeader";
 import { PersonNameTooltip } from "./PersonNameTooltip";
 import { TeamCycleUsageSection } from "./TeamCycleUsageSection";
 import { TokenUsageDateRangeFilter } from "./TokenUsageDateRangeFilter";
-
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
-/** Ordem de exibição do heatmap: Seg→Dom */
-const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 
 type SortKey = "tokens" | "events" | "cost" | "outside" | "email";
 
@@ -302,10 +302,15 @@ function WorkWindowHeatmap({
   cells: TokenUsageHeatCell[];
   onSelect: (query: TokenUsageSlotQuery) => void;
 }) {
+  const dates = useMemo(() => {
+    const unique = [...new Set(cells.map((cell) => cell.date).filter(Boolean))];
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [cells]);
+
   const map = useMemo(() => {
     const nested = new Map<string, TokenUsageHeatCell>();
     for (const cell of cells) {
-      nested.set(`${cell.weekday}-${cell.hour}`, cell);
+      nested.set(`${cell.date}-${cell.hour}`, cell);
     }
     return nested;
   }, [cells]);
@@ -314,10 +319,10 @@ function WorkWindowHeatmap({
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[860px]">
+      <div className="min-w-[920px]">
         <div
           className="grid gap-1.5"
-          style={{ gridTemplateColumns: `40px repeat(24, minmax(0, 1fr))` }}
+          style={{ gridTemplateColumns: `72px repeat(24, minmax(0, 1fr))` }}
         >
           <div />
           {Array.from({ length: 24 }, (_, hour) => {
@@ -335,43 +340,51 @@ function WorkWindowHeatmap({
             );
           })}
 
-          {WEEKDAY_ORDER.map((weekday) => (
-            <div key={`row-${weekday}`} className="contents">
-              <div className="flex items-center text-xs font-semibold text-gran-navy">
-                {WEEKDAYS[weekday]}
+          {dates.map((date) => {
+            const sample =
+              map.get(`${date}-0`) ?? cells.find((c) => c.date === date);
+            const label = formatHeatmapDayLabel(date, sample?.weekday);
+            return (
+              <div key={`row-${date}`} className="contents">
+                <div className="flex items-center text-[11px] font-semibold leading-tight text-gran-navy">
+                  {label}
+                </div>
+                {Array.from({ length: 24 }, (_, hour) => {
+                  const cell = map.get(`${date}-${hour}`);
+                  const events = cell?.events ?? 0;
+                  const outside =
+                    hour < WORKDAY_START_HOUR || hour >= WORKDAY_END_HOUR;
+                  const style = heatmapCellStyle(events, maxEvents);
+                  return (
+                    <button
+                      key={`${date}-${hour}`}
+                      type="button"
+                      disabled={events <= 0}
+                      onClick={() => onSelect({ date, hour })}
+                      title={`${label} ${String(hour).padStart(2, "0")}h · ${events} eventos · clique para ver pessoas`}
+                      className={`flex h-8 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums transition disabled:cursor-default enabled:cursor-pointer enabled:hover:brightness-95 enabled:hover:ring-2 enabled:hover:ring-gran-navy/30 ${
+                        outside && events > 0
+                          ? "ring-1 ring-inset ring-gran-red/35"
+                          : ""
+                      }`}
+                      style={style}
+                    >
+                      {events > 0 ? events : ""}
+                    </button>
+                  );
+                })}
               </div>
-              {Array.from({ length: 24 }, (_, hour) => {
-                const cell = map.get(`${weekday}-${hour}`);
-                const events = cell?.events ?? 0;
-                const outside =
-                  hour < WORKDAY_START_HOUR || hour >= WORKDAY_END_HOUR;
-                const style = heatmapCellStyle(events, maxEvents);
-                return (
-                  <button
-                    key={`${weekday}-${hour}`}
-                    type="button"
-                    disabled={events <= 0}
-                    onClick={() => onSelect({ weekday, hour })}
-                    title={`${WEEKDAYS[weekday]} ${String(hour).padStart(2, "0")}h · ${events} eventos · clique para ver pessoas`}
-                    className={`flex h-9 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums transition disabled:cursor-default enabled:cursor-pointer enabled:hover:brightness-95 enabled:hover:ring-2 enabled:hover:ring-gran-navy/30 ${
-                      outside && events > 0 ? "ring-1 ring-inset ring-gran-red/35" : ""
-                    }`}
-                    style={style}
-                  >
-                    {events > 0 ? events : ""}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gran-muted">
-          <span>Clique em uma célula para ver quem gerou os eventos</span>
           <span>
-            · horas em vermelho = fora de {WORKDAY_START_HOUR}h–
+            Últimos {dates.length || HEATMAP_DAY_COUNT} dias do período · horas
+            em vermelho = fora de {WORKDAY_START_HOUR}h–
             {WORKDAY_END_HOUR}h
           </span>
+          <span>Clique em uma célula para ver quem gerou os eventos</span>
         </div>
       </div>
     </div>
@@ -1240,7 +1253,7 @@ export function MembersTokenUsagePage({
 
             <Section
               title="Janela de trabalho diária"
-              subtitle="Mapa de calor de eventos por dia da semana × hora (Brasília). Clique na célula para ver quem usou naquele horário."
+              subtitle={`Mapa de calor dos últimos ${HEATMAP_DAY_COUNT} dias × hora (Brasília). Clique na célula para ver quem usou naquele horário.`}
             >
               {heatmap.length > 0 ? (
                 <WorkWindowHeatmap cells={heatmap} onSelect={openSlot} />

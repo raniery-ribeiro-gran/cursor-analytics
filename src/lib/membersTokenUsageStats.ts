@@ -8,8 +8,11 @@ import {
   WORKDAY_START_HOUR,
 } from "./membersTokenUsageConstants";
 import {
+  heatmapDateWindow,
+  listDatesInclusive,
   resolveTokenUsageDateRange,
   tokenUsageRangeParams,
+  weekdayFromIsoDate,
   type TokenUsageDateRangeInput,
   type TokenUsageDateRangeMeta,
 } from "./tokenUsageDateRange";
@@ -73,6 +76,8 @@ export interface TokenUsageHourPoint {
 }
 
 export interface TokenUsageHeatCell {
+  /** Data BRT no formato YYYY-MM-DD. */
+  date: string;
   weekday: number;
   hour: number;
   events: number;
@@ -152,6 +157,46 @@ function tokens(value: unknown): number {
 function pct(part: number, total: number): number {
   if (total <= 0) return 0;
   return Math.round((part / total) * 1000) / 10;
+}
+
+/** Monta grade dia×hora dos últimos 15 dias do período selecionado. */
+export function buildTokenUsageHeatmap(
+  rows: Record<string, unknown>[],
+  dateRange: TokenUsageDateRangeMeta,
+): TokenUsageHeatCell[] {
+  const window = heatmapDateWindow(dateRange);
+  if (!window.from || !window.to) return [];
+
+  const byKey = new Map<string, TokenUsageHeatCell>();
+  for (const row of rows) {
+    const date = String(row.day ?? "");
+    if (!date || date < window.from || date > window.to) continue;
+    const hour = Number(row.hour ?? 0);
+    byKey.set(`${date}-${hour}`, {
+      date,
+      weekday: Number(row.weekday ?? weekdayFromIsoDate(date)),
+      hour,
+      events: Number(row.events ?? 0),
+      totalTokens: tokens(row.total_tokens),
+    });
+  }
+
+  const cells: TokenUsageHeatCell[] = [];
+  for (const date of listDatesInclusive(window.from, window.to)) {
+    const weekday = weekdayFromIsoDate(date);
+    for (let hour = 0; hour < 24; hour += 1) {
+      cells.push(
+        byKey.get(`${date}-${hour}`) ?? {
+          date,
+          weekday,
+          hour,
+          events: 0,
+          totalTokens: 0,
+        },
+      );
+    }
+  }
+  return cells;
 }
 
 function median(values: number[]): number {
@@ -475,24 +520,21 @@ export async function getMembersTokenUsageData(
   const heatResult = await query(
     `
     SELECT
+      ${EVENT_BRT_DATE} AS day,
       ${EVENT_BRT_DOW} AS weekday,
       ${EVENT_BRT_HOUR} AS hour,
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
     WHERE upload_id = $1 AND ${range.sql}
-    GROUP BY weekday, hour
+    GROUP BY day, weekday, hour
   `,
     rangeQueryParams,
   );
-  const heatmap: TokenUsageHeatCell[] = (
-    heatResult.rows as Record<string, unknown>[]
-  ).map((row) => ({
-    weekday: Number(row.weekday ?? 0),
-    hour: Number(row.hour ?? 0),
-    events: Number(row.events ?? 0),
-    totalTokens: tokens(row.total_tokens),
-  }));
+  const heatmap = buildTokenUsageHeatmap(
+    heatResult.rows as Record<string, unknown>[],
+    dateRange,
+  );
 
   const windowResult = await query(
     `
@@ -1137,24 +1179,21 @@ export async function getMembersTokenUsageUserDetail(
   const heatResult = await query(
     `
     SELECT
+      ${EVENT_BRT_DATE} AS day,
       ${EVENT_BRT_DOW} AS weekday,
       ${EVENT_BRT_HOUR} AS hour,
       COUNT(*) AS events,
       COALESCE(SUM(total_tokens), 0) AS total_tokens
     FROM cursor_token_usage_events
     WHERE upload_id = $1 AND ${range.sql} AND user_email = $4
-    GROUP BY weekday, hour
+    GROUP BY day, weekday, hour
   `,
     [...commonParams, email],
   );
-  const heatmap: TokenUsageHeatCell[] = (
-    heatResult.rows as Record<string, unknown>[]
-  ).map((row) => ({
-    weekday: Number(row.weekday ?? 0),
-    hour: Number(row.hour ?? 0),
-    events: Number(row.events ?? 0),
-    totalTokens: tokens(row.total_tokens),
-  }));
+  const heatmap = buildTokenUsageHeatmap(
+    heatResult.rows as Record<string, unknown>[],
+    dateRange,
+  );
 
   const kindResult = await query(
     `
