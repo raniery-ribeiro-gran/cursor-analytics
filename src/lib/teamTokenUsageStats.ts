@@ -366,19 +366,6 @@ export async function getTeamTokenUsageData(
     );
   }
 
-  if (!full.upload || !full.summary) {
-    return emptyTeamPayload(
-      leaderEmail,
-      leaderName,
-      reports,
-      "no_usage",
-      full.upload,
-      full.dateRange,
-    );
-  }
-
-  const teamUsers = full.users.filter((user) => teamEmails.has(user.email));
-  const directorateUsers = full.users;
   const { getOrganogramIndex } = await import("./organogramDb");
   const organogram = await getOrganogramIndex();
 
@@ -394,6 +381,41 @@ export async function getTeamTokenUsageData(
       roleTitle: report.roleTitle || person?.roleTitle || null,
     };
   };
+
+  const reportHasUsage = (reportEmail: string): boolean => {
+    const reportPerson = organogram.findByEmail(reportEmail);
+    return full.users.some((user) => {
+      if (user.email === reportEmail) return true;
+      const userPerson = organogram.findByEmail(user.email);
+      if (!userPerson || !reportPerson) return false;
+      return (
+        userPerson.email.toLowerCase() === reportPerson.email.toLowerCase()
+      );
+    });
+  };
+
+  if (!full.upload || !full.summary) {
+    return {
+      ...emptyTeamPayload(
+        leaderEmail,
+        leaderName,
+        reports,
+        "no_usage",
+        full.upload,
+        full.dateRange,
+      ),
+      unusedUsers: reports
+        .map(toIdlePerson)
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    };
+  }
+
+  const teamUsers = full.users.filter((user) => {
+    if (teamEmails.has(user.email)) return true;
+    const person = organogram.findByEmail(user.email);
+    return person ? teamEmails.has(person.email.toLowerCase()) : false;
+  });
+  const directorateUsers = full.users;
 
   if (teamUsers.length === 0) {
     const unusedUsers = reports
@@ -429,9 +451,8 @@ export async function getTeamTokenUsageData(
     directorateUsers,
   );
 
-  const activeEmails = new Set(teamUsers.map((user) => user.email));
   const unusedUsers = reports
-    .filter((report) => !activeEmails.has(report.email))
+    .filter((report) => !reportHasUsage(report.email))
     .map(toIdlePerson)
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 

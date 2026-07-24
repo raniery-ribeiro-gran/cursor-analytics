@@ -717,7 +717,9 @@ function OutliersChart({
               Não usam o Cursor
             </p>
             <p className="text-[11px] text-gran-muted">
-              No organograma, sem eventos no período
+              {benchmarkLabel === "Diretoria de TI"
+                ? "Liderados no organograma, sem eventos no período"
+                : "No organograma, sem eventos no período"}
             </p>
           </div>
           {topUnused.length === 0 ? (
@@ -1306,7 +1308,11 @@ export function MembersTokenUsagePage({
 
             <Section
               title="Saiu da curva"
-              subtitle={`Outliers de tokens vs mediana ${isTeam ? "da Diretoria de TI" : "do time"} (método IQR) — barras com linha de referência`}
+              subtitle={
+                isTeam
+                  ? "Outliers do time vs Diretoria de TI (IQR) e liderados do organograma sem uso do Cursor no período"
+                  : "Outliers de tokens vs mediana do time (método IQR) — barras com linha de referência"
+              }
             >
               <OutliersChart
                 high={outliersHigh}
