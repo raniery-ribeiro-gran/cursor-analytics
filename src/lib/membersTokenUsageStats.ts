@@ -105,6 +105,15 @@ export interface TokenUsageOutlier {
   reason: string;
 }
 
+/** Pessoa do organograma sem eventos de Cursor no período. */
+export interface TokenUsageIdlePerson {
+  email: string;
+  name: string;
+  tribe: string | null;
+  leaderName: string | null;
+  roleTitle: string | null;
+}
+
 export interface TokenUsageSummary {
   events: number;
   users: number;
@@ -139,6 +148,7 @@ export interface MembersTokenUsageData {
   workWindows: TokenUsageWorkdayWindow[];
   outliersHigh: TokenUsageOutlier[];
   outliersLow: TokenUsageOutlier[];
+  unusedUsers: TokenUsageIdlePerson[];
   outsideHeavyUsers: TokenUsageUserRow[];
 }
 
@@ -248,6 +258,7 @@ function emptyPayload(): MembersTokenUsageData {
     workWindows: [],
     outliersHigh: [],
     outliersLow: [],
+    unusedUsers: [],
     outsideHeavyUsers: [],
   };
 }
@@ -586,6 +597,22 @@ export async function getMembersTokenUsageData(
     meanTokensPerUser: tokens(meanTokens),
   };
 
+  const activeEmails = new Set(users.map((user) => user.email));
+  const unusedUsers: TokenUsageIdlePerson[] = organogram
+    .all()
+    .filter((person) => {
+      const email = person.email.trim().toLowerCase();
+      return Boolean(email) && !activeEmails.has(email);
+    })
+    .map((person) => ({
+      email: person.email.trim().toLowerCase(),
+      name: person.name || person.email,
+      tribe: (person.tribe || person.department || "").trim() || null,
+      leaderName: person.managerName?.trim() || null,
+      roleTitle: person.roleTitle?.trim() || null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
   return {
     upload,
     dateRange,
@@ -600,6 +627,7 @@ export async function getMembersTokenUsageData(
     workWindows,
     outliersHigh,
     outliersLow,
+    unusedUsers,
     outsideHeavyUsers,
   };
 }

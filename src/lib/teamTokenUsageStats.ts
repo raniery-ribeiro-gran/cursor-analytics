@@ -8,6 +8,7 @@ import {
   buildTokenUsageHeatmap,
   type MembersTokenUsageData,
   type MembersTokenUsageUserDetail,
+  type TokenUsageIdlePerson,
   type TokenUsageOutlier,
   type TokenUsageSummary,
   type TokenUsageUserRow,
@@ -145,6 +146,7 @@ function emptyTeamPayload(
     workWindows: [],
     outliersHigh: [],
     outliersLow: [],
+    unusedUsers: [],
     outsideHeavyUsers: [],
     leader: { email: leaderEmail, name: leaderName },
     organogramReports: reports.length,
@@ -377,8 +379,26 @@ export async function getTeamTokenUsageData(
 
   const teamUsers = full.users.filter((user) => teamEmails.has(user.email));
   const directorateUsers = full.users;
+  const { getOrganogramIndex } = await import("./organogramDb");
+  const organogram = await getOrganogramIndex();
+
+  const toIdlePerson = (
+    report: OrganogramDescendant,
+  ): TokenUsageIdlePerson => {
+    const person = organogram.findByEmail(report.email);
+    return {
+      email: report.email,
+      name: report.name,
+      tribe: report.tribe || person?.tribe || person?.department || null,
+      leaderName: person?.managerName?.trim() || null,
+      roleTitle: report.roleTitle || person?.roleTitle || null,
+    };
+  };
 
   if (teamUsers.length === 0) {
+    const unusedUsers = reports
+      .map(toIdlePerson)
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     return {
       ...emptyTeamPayload(
         leaderEmail,
@@ -388,6 +408,7 @@ export async function getTeamTokenUsageData(
         full.upload,
         full.dateRange,
       ),
+      unusedUsers,
       directorate:
         directorateUsers.length > 0
           ? buildDirectorateBenchmark(directorateUsers)
@@ -407,6 +428,12 @@ export async function getTeamTokenUsageData(
     teamUsers,
     directorateUsers,
   );
+
+  const activeEmails = new Set(teamUsers.map((user) => user.email));
+  const unusedUsers = reports
+    .filter((report) => !activeEmails.has(report.email))
+    .map(toIdlePerson)
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   const outsideHeavyUsers = [...teamUsers]
     .filter((user) => user.outsideEvents >= 10 && user.outsidePct >= 15)
@@ -448,6 +475,7 @@ export async function getTeamTokenUsageData(
     workWindows: scoped.workWindows,
     outliersHigh,
     outliersLow,
+    unusedUsers,
     outsideHeavyUsers,
     leader: { email: leaderEmail, name: leaderName },
     organogramReports: reports.length,

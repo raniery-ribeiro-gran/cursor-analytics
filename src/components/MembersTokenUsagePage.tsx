@@ -21,6 +21,7 @@ import type {
   TokenUsageKindBreakdown,
   TokenUsageModelBreakdown,
   TokenUsageOutlier,
+  TokenUsageIdlePerson,
   TokenUsageSlotBreakdown,
   TokenUsageSlotQuery,
   TokenUsageSummary,
@@ -616,18 +617,21 @@ function OutlierBars({
 function OutliersChart({
   high,
   low,
+  unused,
   medianTokens,
   meanTokens,
   benchmarkLabel = "time",
 }: {
   high: TokenUsageOutlier[];
   low: TokenUsageOutlier[];
+  unused: TokenUsageIdlePerson[];
   medianTokens: number;
   meanTokens: number;
   benchmarkLabel?: string;
 }) {
   const topHigh = high.slice(0, 8);
   const topLow = low.slice(0, 8);
+  const topUnused = unused.slice(0, 12);
 
   return (
     <div>
@@ -664,9 +668,17 @@ function OutliersChart({
             {low.length}
           </p>
         </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="font-bold uppercase tracking-wide text-slate-700">
+            Sem uso
+          </p>
+          <p className="mt-0.5 font-montserrat text-sm font-bold text-slate-700">
+            {unused.length}
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-lg border border-red-100 bg-red-50/40 px-4 py-3">
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-red-700">
@@ -698,11 +710,54 @@ function OutliersChart({
             tone="low"
           />
         </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+              Não usam o Cursor
+            </p>
+            <p className="text-[11px] text-gran-muted">
+              No organograma, sem eventos no período
+            </p>
+          </div>
+          {topUnused.length === 0 ? (
+            <p className="text-sm text-gran-muted">
+              Todos no organograma tiveram uso no período.
+            </p>
+          ) : (
+            <ul className="max-h-72 space-y-2 overflow-y-auto">
+              {topUnused.map((person) => (
+                <li
+                  key={person.email}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2"
+                >
+                  <PersonNameTooltip
+                    name={person.name}
+                    tribe={person.tribe}
+                    leaderName={person.leaderName}
+                    className="text-sm font-semibold text-gran-navy"
+                  />
+                  <p className="mt-0.5 truncate text-[11px] text-gran-muted">
+                    {person.roleTitle || "Cargo não informado"}
+                    {person.tribe ? ` · ${person.tribe}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {unused.length > topUnused.length ? (
+            <p className="mt-3 text-[11px] text-gran-muted">
+              +{unused.length - topUnused.length} pessoa(s) não exibida(s)
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <p className="mt-4 text-xs text-gran-muted">
         Detecção por IQR (Q3+1.5·IQR / Q1−1.5·IQR) e referência de mediana.
-        Valores “× a mediana” mostram o quanto a pessoa foge do benchmark.
+        Valores “× a mediana” mostram o quanto a pessoa foge do benchmark. O
+        terceiro painel lista quem está no organograma sem usage events no
+        período filtrado.
       </p>
     </div>
   );
@@ -745,6 +800,7 @@ export function MembersTokenUsagePage({
   const [heatmap, setHeatmap] = useState<TokenUsageHeatCell[]>([]);
   const [outliersHigh, setOutliersHigh] = useState<TokenUsageOutlier[]>([]);
   const [outliersLow, setOutliersLow] = useState<TokenUsageOutlier[]>([]);
+  const [unusedUsers, setUnusedUsers] = useState<TokenUsageIdlePerson[]>([]);
   const [outsideHeavyUsers, setOutsideHeavyUsers] = useState<TokenUsageUserRow[]>(
     [],
   );
@@ -892,6 +948,7 @@ export function MembersTokenUsagePage({
       setHeatmap(data.heatmap ?? []);
       setOutliersHigh(data.outliersHigh ?? []);
       setOutliersLow(data.outliersLow ?? []);
+      setUnusedUsers(data.unusedUsers ?? []);
       setOutsideHeavyUsers(data.outsideHeavyUsers ?? []);
       if (isTeam) {
         setTeamMeta({
@@ -1019,10 +1076,29 @@ export function MembersTokenUsagePage({
         ) : null}
 
         {!loading && isTeam && teamMeta?.emptyReason === "no_usage" ? (
-          <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            Há {teamMeta.organogramReports} liderado(s) no organograma, mas
-            nenhum com usage events no último upload.
-          </section>
+          <>
+            <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Há {teamMeta.organogramReports} liderado(s) no organograma, mas
+              nenhum com usage events no período.
+            </section>
+            {unusedUsers.length > 0 ? (
+              <Section
+                title="Saiu da curva"
+                subtitle="Liderados do organograma sem uso do Cursor no período"
+              >
+                <OutliersChart
+                  high={[]}
+                  low={[]}
+                  unused={unusedUsers}
+                  medianTokens={
+                    teamMeta.directorate?.medianTokensPerUser ?? 0
+                  }
+                  meanTokens={teamMeta.directorate?.meanTokensPerUser ?? 0}
+                  benchmarkLabel="Diretoria de TI"
+                />
+              </Section>
+            ) : null}
+          </>
         ) : null}
 
         {!loading && !upload && !isTeam ? (
@@ -1104,6 +1180,7 @@ export function MembersTokenUsagePage({
 
             {(summary.outsidePct >= 5 ||
               outliersHigh.length > 0 ||
+              unusedUsers.length > 0 ||
               outsideHeavyUsers.length > 0) && (
               <section className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
                 <p className="font-semibold">Sinais de atenção</p>
@@ -1125,6 +1202,12 @@ export function MembersTokenUsagePage({
                     <li>
                       {outliersLow.length} usuário(s) muito abaixo do uso
                       típico — possível subutilização de seat.
+                    </li>
+                  ) : null}
+                  {unusedUsers.length > 0 ? (
+                    <li>
+                      {unusedUsers.length} pessoa(s) do organograma sem uso do
+                      Cursor no período.
                     </li>
                   ) : null}
                   {outsideHeavyUsers.length > 0 ? (
@@ -1228,6 +1311,7 @@ export function MembersTokenUsagePage({
               <OutliersChart
                 high={outliersHigh}
                 low={outliersLow}
+                unused={unusedUsers}
                 medianTokens={
                   isTeam && teamMeta?.directorate
                     ? teamMeta.directorate.medianTokensPerUser
