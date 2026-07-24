@@ -417,7 +417,7 @@ function SlotPeopleModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <button
         type="button"
         aria-label="Fechar"
@@ -678,8 +678,8 @@ function OutliersChart({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-lg border border-red-100 bg-red-50/40 px-4 py-3">
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="min-w-0 rounded-lg border border-red-100 bg-red-50/40 px-4 py-3">
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-red-700">
               Acima do normal
@@ -695,7 +695,7 @@ function OutliersChart({
           />
         </div>
 
-        <div className="rounded-lg border border-amber-100 bg-amber-50/40 px-4 py-3">
+        <div className="min-w-0 rounded-lg border border-amber-100 bg-amber-50/40 px-4 py-3">
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
               Abaixo do normal
@@ -711,7 +711,7 @@ function OutliersChart({
           />
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3">
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
               Não usam o Cursor
@@ -1083,23 +1083,21 @@ export function MembersTokenUsagePage({
               Há {teamMeta.organogramReports} liderado(s) no organograma, mas
               nenhum com usage events no período.
             </section>
-            {unusedUsers.length > 0 ? (
-              <Section
-                title="Saiu da curva"
-                subtitle="Liderados do organograma sem uso do Cursor no período"
-              >
-                <OutliersChart
-                  high={[]}
-                  low={[]}
-                  unused={unusedUsers}
-                  medianTokens={
-                    teamMeta.directorate?.medianTokensPerUser ?? 0
-                  }
-                  meanTokens={teamMeta.directorate?.meanTokensPerUser ?? 0}
-                  benchmarkLabel="Diretoria de TI"
-                />
-              </Section>
-            ) : null}
+            <Section
+              title="Saiu da curva"
+              subtitle="Liderados do organograma sem uso do Cursor no período"
+            >
+              <OutliersChart
+                high={[]}
+                low={[]}
+                unused={unusedUsers}
+                medianTokens={
+                  teamMeta.directorate?.medianTokensPerUser ?? 0
+                }
+                meanTokens={teamMeta.directorate?.meanTokensPerUser ?? 0}
+                benchmarkLabel="Diretoria de TI"
+              />
+            </Section>
           </>
         ) : null}
 
@@ -1127,7 +1125,7 @@ export function MembersTokenUsagePage({
             </section>
 
             {isTeam && teamMeta?.directorate ? (
-              <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <KpiCard
                   label="Média por pessoa · Diretoria de TI"
                   value={formatTokens(teamMeta.directorate.meanTokensPerUser)}
@@ -1147,6 +1145,12 @@ export function MembersTokenUsagePage({
                   label="Cost médio · Diretoria de TI"
                   value={formatUsd(teamMeta.directorate.meanCostUsdPerUser)}
                   accent="red"
+                />
+                <KpiCard
+                  label="Sem uso no Cursor"
+                  value={String(unusedUsers.length)}
+                  hint="Liderados do organograma sem eventos no período"
+                  accent="amber"
                 />
               </section>
             ) : null}

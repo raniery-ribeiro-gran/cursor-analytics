@@ -238,7 +238,7 @@ function TeamDashboardModal({
   if (!leader) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       <button
         type="button"
         aria-label="Fechar"
@@ -276,6 +276,7 @@ function TeamDashboardModal({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           <MembersTokenUsagePage
+            key={leader.email}
             variant="team"
             apiBase="/api/estatisticas/admin/team-token-usage"
             leaderEmail={leader.email}
