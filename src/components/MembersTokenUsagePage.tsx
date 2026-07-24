@@ -27,11 +27,11 @@ import type {
   TokenUsageUserRow,
 } from "@/lib/membersTokenUsageStats";
 import type { TeamMembersCycleUsage } from "@/lib/teamTokenUsageStats";
-import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
+import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRangeShared";
 import {
   formatHeatmapDayLabel,
   HEATMAP_DAY_COUNT,
-} from "@/lib/tokenUsageDateRange";
+} from "@/lib/tokenUsageDateRangeShared";
 import { MembersTokenUsageUserModal } from "./MembersTokenUsageUserModal";
 import { PageHeader } from "./PageHeader";
 import { PersonNameTooltip } from "./PersonNameTooltip";

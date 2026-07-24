@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { MembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
-import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
+import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRangeShared";
 import { PageHeader } from "./PageHeader";
 import { TokenUsageUserDetailView } from "./MembersTokenUsageUserModal";
 import { TokenUsageDateRangeFilter } from "./TokenUsageDateRangeFilter";

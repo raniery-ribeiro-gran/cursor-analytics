@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
 import type { TechOrganogramNode } from "@/lib/techOrganogramTree";
-import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRange";
+import type { TokenUsageDateRangeMeta } from "@/lib/tokenUsageDateRangeShared";
 import { MembersTokenUsagePage } from "./MembersTokenUsagePage";
 import { TokenUsageUserDetailView } from "./MembersTokenUsageUserModal";
 import { PageHeader } from "./PageHeader";

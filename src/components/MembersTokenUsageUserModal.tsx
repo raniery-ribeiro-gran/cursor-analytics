@@ -9,7 +9,7 @@ import type { MembersTokenUsageUserDetail } from "@/lib/membersTokenUsageStats";
 import {
   formatHeatmapDayLabel,
   HEATMAP_DAY_COUNT,
-} from "@/lib/tokenUsageDateRange";
+} from "@/lib/tokenUsageDateRangeShared";
 
 function formatUsd(value: number): string {
   return value.toLocaleString("en-US", {
